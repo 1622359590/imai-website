@@ -1,0 +1,13 @@
+node_modules/
+.next/
+*.db
+*.log
+.DS_Store
+.env
+uploads/*
+!uploads/.gitkeep
+
+# SQLite WAL files
+*.db-shm
+*.db-wal
+backend/data.db
