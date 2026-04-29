@@ -6,9 +6,24 @@
 
 ---
 
-## 关于本系统 / About
+## 关于本系统
 
-### 🇨🇳 中文
+<details>
+<summary>🇬🇧 Click for English</summary>
+
+This system was born from a very real pain point — **after-sales support overload**.
+
+In daily operations, repetitive questions drain support teams: "How do I use this?" "Where do I configure that?" "Why is it broken?" Behind every question is a confused user, and behind every answer is a support agent's precious time.
+
+So I built this system.
+
+The core idea is simple: **turn common questions into tutorials, transform repetitive answers into self-service.** Users search the tutorial center first, browse the FAQ, or submit structured tickets with context — no more vague "help me check this" requests.
+
+Future plans include AI integration: auto-answering, smart tutorial recommendations, automated ticket classification... Let the system absorb 80% of repetitive inquiries, so support teams focus only on what truly needs human intervention.
+
+> **Less support anxiety, more product time.**
+
+</details>
 
 这套系统源于一个很现实的痛点——**售后压力**。
 
@@ -21,20 +36,6 @@
 未来计划接入 AI 能力：自动问答、智能推荐教程、工单自动分类……让系统能自主消化掉 80% 的重复咨询，让售后人员真正只处理那些需要人工介入的问题。
 
 > 做这个系统的本心就一句话：**少一点售后焦虑，多一点产品时间。**
-
-### 🇬🇧 English
-
-This system was born from a very real pain point — **after-sales support overload**.
-
-In daily operations, repetitive questions drain support teams: "How do I use this?" "Where do I configure that?" "Why is it broken?" Behind every question is a confused user, and behind every answer is a support agent's precious time.
-
-So I built this system.
-
-The core idea is simple: **turn common questions into tutorials, transform repetitive answers into self-service.** Users search the tutorial center first, browse the FAQ, or submit structured tickets with context — no more vague "help me check this" requests.
-
-Future plans include AI integration: auto-answering, smart tutorial recommendations, automated ticket classification... Let the system absorb 80% of repetitive inquiries, so support teams focus only on what truly needs human intervention.
-
-> One sentence sums it up: **Less support anxiety, more product time.**
 
 ---
 
