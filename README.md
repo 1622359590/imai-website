@@ -37,6 +37,16 @@ Future plans include AI integration: auto-answering, smart tutorial recommendati
 
 > 做这个系统的本心就一句话：**少一点售后焦虑，多一点产品时间。**
 
+### 🤖 AI 路线图
+
+最终目标是让 AI 吃掉整个知识库，变成一个真正的智能售后助手：
+
+- 🧠 **知识库投喂** — 将教程、FAQ、工单记录全部结构化，作为 AI 的训练语料
+- 💬 **智能问答** — 用户直接提问，AI 从知识库中检索答案，无需人工介入
+- 📌 **教程推荐** — 根据用户提问，自动推荐相关教程
+- 🎫 **工单自动分类** — AI 自动识别工单类型、紧急程度，分配合适的售后人员
+- 📊 **知识库自愈** — 发现知识库缺失的内容，自动生成草稿供管理员审核
+
 ---
 
 ## 功能概览
@@ -214,6 +224,48 @@ imai-website/
 | `knowledge_base` | 知识库 (预留) |
 
 首次启动自动建表并写入 seed 数据。
+
+---
+
+## Docker 部署
+
+### 前置要求
+
+- Docker & Docker Compose
+
+### 一键启动
+
+```bash
+docker-compose up -d --build
+# 后端 http://localhost:37888
+# 前端 http://localhost:3000
+```
+
+### 环境变量
+
+可以在 `docker-compose.yml` 中配置以下环境变量：
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `JWT_SECRET` | 前台用户 JWT 密钥 | `imai-work-dev-key-2024` |
+| `ADMIN_JWT_SECRET` | 管理员 JWT 密钥 | `imai-admin-secret-key-2024` |
+| `CORS_ORIGIN` | 允许的跨域来源 | `http://localhost:3000` |
+
+数据持久化：
+- 数据库文件保存在 Docker volume `backend-data` 中
+- 上传文件保存在 Docker volume `backend-uploads` 中
+
+### 手动构建
+
+```bash
+# 后端
+docker build -t ai-ticket-backend ./backend
+docker run -d -p 37888:37888 -v backend-data:/app/data -v backend-uploads:/app/uploads ai-ticket-backend
+
+# 前端
+docker build -t ai-ticket-frontend ./frontend
+docker run -d -p 3000:3000 ai-ticket-frontend
+```
 
 ---
 
