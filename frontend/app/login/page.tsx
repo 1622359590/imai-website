@@ -93,7 +93,7 @@ export default function LoginPage() {
 
             <div className="mt-6 text-center text-sm text-[#475569]">
               没有账号？
-              <Link href="/register" className="ml-1 text-[#00d4ff] hover:underline">去注册</Link>
+              <Link href="/register" className="ml-1 text-[#8b5cf6] hover:underline">去注册</Link>
             </div>
           </div>
         </div>

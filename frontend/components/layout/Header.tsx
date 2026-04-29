@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import VIPBadge from '@/components/ui/VIPBadge';
 import { authApi } from '@/lib/api';
 
 interface User {
@@ -42,6 +43,7 @@ export default function Header() {
     { href: '/', label: '首页' },
     { href: '/tutorials', label: '教程' },
     { href: '/faq', label: 'FAQ' },
+    { href: '/ticket', label: '工单' },
   ];
 
   return (
@@ -49,7 +51,7 @@ export default function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-xl font-bold text-[#00d4ff]">imai.work</span>
+          <span className="text-xl font-bold text-[#8b5cf6]">imai.work</span>
         </Link>
 
         {/* Nav Links - Desktop */}
@@ -58,23 +60,13 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-[#00d4ff] ${
-                isActive(link.href) ? 'text-[#00d4ff]' : 'text-[#94a3b8]'
+              className={`text-sm font-medium transition-colors hover:text-[#8b5cf6] ${
+                isActive(link.href) ? 'text-[#8b5cf6]' : 'text-[#94a3b8]'
               }`}
             >
               {link.label}
             </Link>
           ))}
-          {user?.role === 'admin' && (
-            <Link
-              href="/admin"
-              className={`text-sm font-medium transition-colors hover:text-[#00d4ff] ${
-                isActive('/admin') ? 'text-[#00d4ff]' : 'text-[#94a3b8]'
-              }`}
-            >
-              后台管理
-            </Link>
-          )}
         </nav>
 
         {/* Right Side */}
@@ -82,6 +74,7 @@ export default function Header() {
           {user ? (
             <div className="hidden items-center gap-3 md:flex">
               <span className="text-sm text-[#94a3b8]">{user.nickname || user.phone}</span>
+              {(user as any).vip === 1 && <VIPBadge />}
               <button
                 onClick={handleLogout}
                 className="btn btn-secondary btn-sm"
@@ -126,28 +119,20 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-[#00d4ff] ${
-                  isActive(link.href) ? 'text-[#00d4ff] bg-white' : 'text-[#94a3b8]'
+                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-[#8b5cf6] ${
+                  isActive(link.href) ? 'text-[#8b5cf6] bg-white' : 'text-[#94a3b8]'
                 }`}
               >
                 {link.label}
               </Link>
             ))}
-            {user?.role === 'admin' && (
-              <Link
-                href="/admin"
-                onClick={() => setMenuOpen(false)}
-                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-[#00d4ff] ${
-                  isActive('/admin') ? 'text-[#00d4ff] bg-white' : 'text-[#94a3b8]'
-                }`}
-              >
-                后台管理
-              </Link>
-            )}
             <div className="border-t border-[#e2e8f0] pt-2">
               {user ? (
                 <div className="space-y-2 px-3 py-2">
-                  <span className="text-sm text-[#94a3b8]">{user.nickname || user.phone}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#94a3b8]">{user.nickname || user.phone}</span>
+                    {(user as any).vip === 1 && <VIPBadge />}
+                  </div>
                   <button
                     onClick={() => { handleLogout(); setMenuOpen(false); }}
                     className="btn btn-danger btn-sm w-full"

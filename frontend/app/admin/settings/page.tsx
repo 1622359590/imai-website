@@ -14,9 +14,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:37888/api/admin/settings', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('imai-token')}` }
-    }).then(r => r.json()).then(res => {
+    adminApi.getSettings().then(res => {
       setSettings(res.settings || {});
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
@@ -150,11 +148,33 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      {/* 保存按钮（底） */}
+      {/* 保存按钮 */}
       <div className="flex justify-end">
         <button onClick={handleSave} disabled={saving} className="btn btn-primary">
           {saving ? '保存中...' : '保存所有设置'}
         </button>
+      </div>
+
+      {/* 导航按钮组 */}
+      <div className="flex items-center justify-center gap-4 pt-4 border-t border-[#e2e8f0]">
+        <a
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full border border-[#e2e8f0] bg-white px-5 py-2.5 text-sm font-medium text-[#64748b] shadow-sm hover:border-[#8b5cf6] hover:text-[#8b5cf6] hover:shadow-md transition-all"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          返回前台
+        </a>
+        <a
+          href="/admin"
+          className="inline-flex items-center gap-2 rounded-full border border-[#e2e8f0] bg-white px-5 py-2.5 text-sm font-medium text-[#64748b] shadow-sm hover:border-[#8b5cf6] hover:text-[#8b5cf6] hover:shadow-md transition-all"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          仪表盘
+        </a>
       </div>
     </div>
   );

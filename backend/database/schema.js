@@ -25,7 +25,17 @@ function initSchema() {
       password TEXT NOT NULL,
       nickname TEXT DEFAULT '',
       avatar TEXT DEFAULT '',
-      role TEXT DEFAULT 'user' CHECK(role IN ('user','admin')),
+      vip INTEGER DEFAULT 0,
+      vip_expires_at TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS admins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      nickname TEXT DEFAULT '',
+      role TEXT DEFAULT 'admin' CHECK(role IN ('admin','editor')),
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
 
@@ -39,6 +49,7 @@ function initSchema() {
       tags TEXT DEFAULT '[]',
       views INTEGER DEFAULT 0,
       status TEXT DEFAULT 'draft' CHECK(status IN ('draft','published')),
+      vip_only INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now','localtime')),
       updated_at TEXT DEFAULT (datetime('now','localtime'))
     );
@@ -54,12 +65,53 @@ function initSchema() {
       created_at TEXT DEFAULT (datetime('now','localtime'))
     );
 
+    CREATE TABLE IF NOT EXISTS tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      name TEXT DEFAULT '',
+      contact TEXT DEFAULT '',
+      type TEXT DEFAULT 'consult',
+      group_name TEXT DEFAULT '',
+      attachments TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','processing','resolved')),
+      user_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      icon TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS knowledge_base (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      content TEXT DEFAULT '',
+      tags TEXT DEFAULT '[]',
+      category TEXT DEFAULT '',
+      status TEXT DEFAULT 'active' CHECK(status IN ('active','hidden')),
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT DEFAULT '',
       updated_at TEXT DEFAULT (datetime('now','localtime'))
     );
   `);
+
+  // 迁移：兼容旧数据库添加 vip_only 字段
+  try {
+    db.exec("ALTER TABLE tutorials ADD COLUMN vip_only INTEGER DEFAULT 0");
+  } catch(e) {
+    // 字段已存在则忽略
+  }
 
   console.log('✅ 数据库表结构创建完成');
   return db;
@@ -68,19 +120,26 @@ function initSchema() {
 function seedData() {
   const db = getDb();
 
-  // 检查是否已经有数据
-  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  if (userCount.count > 0) {
-    console.log('ℹ️ 数据库已有数据，跳过 seed');
+  // 检查管理员表是否有数据
+  const adminCount = db.prepare('SELECT COUNT(*) as count FROM admins').get();
+  if (adminCount.count > 0) {
+    console.log('ℹ️ 数据库已有管理员数据，跳过 seed');
+    // 不再检查 users 表，避免重复跳 seed
     return;
   }
 
   console.log('🌱 开始写入 seed 数据...');
 
-  // ===== 管理员账号 =====
+  // ===== 管理员账号（独立表）=====
   const hashedPassword = bcrypt.hashSync('admin123', 10);
-  db.prepare(`INSERT INTO users (phone, password, nickname, role) VALUES (?, ?, ?, ?)`).run(
-    '13800000000', hashedPassword, '管理员', 'admin'
+  db.prepare(`INSERT INTO admins (username, password, nickname, role) VALUES (?, ?, ?, ?)`).run(
+    'admin', hashedPassword, '管理员', 'admin'
+  );
+
+  // ===== 前端用户（示例）=====
+  const userHash = bcrypt.hashSync('user123', 10);
+  db.prepare(`INSERT INTO users (phone, password, nickname) VALUES (?, ?, ?)`).run(
+    '13800000000', userHash, '测试用户'
   );
 
   // ===== 教程数据（8篇） =====
@@ -847,182 +906,120 @@ A: 可以，但每个手机务必使用独立的 4G/5G 网络，不要共用 WiF
 > "今天和大家分享做小红书的心得，我觉得最重要的是坚持。"
 
 ### 第三步：配图技巧
-- **3-6 张图**效果最好
-- 第一张图最重要（会被裁剪后展示）
-- 图文一致，不要文不对图
-- 可以使用拼图，但要保证清晰度
-- 统一滤镜或色调
+朋友圈配图遵循"三三制"：
+- 1-2 张图：适合互动类、投票类内容
+- 3-4 张图：适合过程展示、对比
+- 6 张图：适合清单、集合类内容
+- 9 张图：视觉冲击力最强
+配图要清晰、有质感，避免模糊截图。
 
 ### 第四步：发布时间
+朋友圈黄金时段：
+- 早上 7:00-8:00（通勤时间）
+- 中午 12:00-13:00（午休）
+- 下午 18:00-19:00（下班）
+- 晚上 21:00-22:00（睡前）
 
-朋友圈最佳发布时间（基于用户刷圈习惯）：
+### 第五步：评论区运营
+自己的朋友圈也要会"运营"：
+- 发完后在评论区补充信息
+- 回复所有正经评论（非纯表情）
+- 用评论引导互动方向
+- 好的评论可以置顶展示
 
-| 时段 | 说明 | 适合内容 |
-|------|------|---------|
-| 7:00-8:00 | 早起通勤 | 早安、正能量 |
-| 12:00-13:00 | 午休 | 轻松、有趣 |
-| 18:00-19:00 | 下班路 | 生活分享 |
-| 21:00-22:00 | **黄金时段** | 干货、种草 |
-| 22:00-23:00 | 睡前 | 情感、思考 |
+## 朋友圈排版技巧
 
-### 第五步：互动管理
-- 发完后 30 分钟内不要离开微信
-- 每条评论都要回复（至少点个赞）
-- 不要删评论（除非是恶意攻击）
-- 每隔 2-3 天做一次评论区互动
+### 文字排版
+- 每段不超过 4 行
+- 段与段之间空一行
+- 重点用 **\*\*加粗\*\*** 或 🔥 表情标注
+- 重要信息放开头
 
-## 朋友圈内容矩阵
+### 排版工具推荐
+- 利用 iPhone 自带的"换行"键
+- 微信自带编辑器可以调整文字样式
+- 可以用备忘录写好再复制粘贴
 
-### 日常占比建议
+## 朋友圈的"六不要"
 
-\`\`\`
-📱 内容配比图（视觉）
-40%   价值内容（干货/经验/见解）
-30%   生活内容（日常/个人/真实）
-20%   互动内容（投票/问答/福利）
-10%   营销内容（产品/服务/促销）
-\`\`\`
+1. ❌ **不要连续发广告**：会被好友屏蔽
+2. ❌ **不要刷屏**：一天 3-5 条为上限
+3. ❌ **不要只发链接**：至少写一段引导文字
+4. ❌ **不要负能量**：没人喜欢看抱怨
+5. ❌ **不要过度修图**：失真会降低信任感
+6. ❌ **不要忽略节假日**：节日内容互动率高
 
-### 案例：教育培训类朋友圈
+## 朋友圈互动提升技巧
 
-- **周一**：行业干货（专业度展示）
-- **周三**：学员案例（效果展示）
-- **周五**：个人思考（人格魅力）
-- **周日**：互动提问（用户参与）
+### 点赞的艺术
+- 给同行的朋友圈点赞
+- 给客户的朋友圈点赞
+- 点赞优质内容，建立社交关系
 
-## 高级技巧
+### 评论的艺术
+- 走心的评论比点赞更有价值
+- 评论区是展示专业度的好地方
+- 用提问引发更多讨论
 
-### 1. 单条朋友圈的"信息密度"
-长文用分段 + 空行排版，让人愿意读下去。善用 emoji 做视觉分隔。
-
-### 2. 评论区自导自演
-发完朋友圈后，自己在评论区补充信息。比如：
-> "补充一下：私信'教程'免费领取XX资料"
-
-这种方法不占用正文空间，又能引导私信。
-
-### 3. 利用"提醒谁看"
-重要内容可以 @ 目标客户，但要适度，过度会惹人反感。
-
-### 4. 九宫格的秘密
-9 张配图 = 最大信息量。可以用拼图软件做有设计感的九宫格。
-
-## 需要避免的"毁圈"行为
-
-- ❌ **日更超过 5 条**：会被屏蔽
-- ❌ **全是广告**：会被拉黑
-- ❌ **负能量爆棚**：会被屏蔽
-- ❌ **刷屏式发图**：9 张一模一样的图最烦人
-- ❌ **求转发点赞**：偶尔可以，多了讨人厌
-- ❌ **虚假人设**：硬凹人设早晚穿帮
-
-## 朋友圈数据自检
-
-每个月做一次朋友圈复盘：
-- 本月发了多少条？
-- 平均每条多少赞/评论？
-- 哪条互动最高？为什么？
-- 广告内容的转化率如何？
-- 好友有没有增加屏蔽？
+### 引导互动
+- 朋友圈末尾加一句"你怎么看？"
+- 发投票类内容（二选一）
+- 设置"猜谜"类互动
+- 评论区回复引发再互动
 
 ## 总结
 
-好的朋友圈经营，核心是"**像朋友一样分享，像专家一样输出**"。不要把朋友圈当成广告位，而是你的**个人品牌展示窗口**。真诚 + 价值 + 频率控制，就是最好的策略。
+朋友圈不是广告位，是你的人设窗口。先提供价值，再谈转化。当你的朋友圈对别人有用的时候，成交只是顺带的事。
 `,
       cover: '',
-      views: 2765,
+      views: 2890,
       status: 'published'
-    }
+    },
   ];
 
   for (const t of tutorials) {
     insertTutorial.run(t.title, t.category, t.content, t.summary, t.cover, t.tags, t.views, t.status);
   }
 
-  // ===== FAQ 数据（6条） =====
+  // ===== FAQ 数据（6条）=====
   const insertFaq = db.prepare(`
     INSERT INTO faqs (question, answer, category, sort_order, pinned, status)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   const faqs = [
-    {
-      question: '如何注册 imai.work 账号？',
-      answer: '在官网点击右上角"注册"按钮，输入手机号和密码即可完成注册。注册成功后可使用手机号+密码登录。目前仅支持手机号注册，后续将开放微信扫码登录。',
-      category: '账号',
-      sort_order: 1,
-      pinned: 1
-    },
-    {
-      question: '教程内容多久更新一次？',
-      answer: '我们每周至少更新 2-3 篇新的教程。由于各平台的算法和规则变化较快（尤其是抖音和小红书），我们会根据平台最新动态及时更新已有教程内容。您也可以关注我们的更新通知，第一时间获取最新教程。',
-      category: '教程',
-      sort_order: 2,
-      pinned: 0
-    },
-    {
-      question: '如何联系客服？',
-      answer: '目前您可以通过以下方式联系我们：\n1. 在 FAQ 页面提交问题\n2. 通过微信公众号留言\n3. 发送邮件至 support@imai.work\n我们会在工作日的 4 小时内回复您的问题。',
-      category: '通用',
-      sort_order: 3,
-      pinned: 1
-    },
-    {
-      question: '抖音养号一般需要多久？',
-      answer: '完整的抖音养号周期通常为 7-14 天。\n\n- **第 1-3 天**：账号初始化，完善资料，模拟正常用户行为\n- **第 4-7 天**：打造兴趣标签，精准浏览目标领域内容\n- **第 8 天起**：开始发布作品，保持日更 1 条\n\n具体时间因人而异，核心是保证账号的"真实性"。如果时间紧迫，至少保证 3 天的初期养号。',
-      category: '抖音',
-      sort_order: 4,
-      pinned: 0
-    },
-    {
-      question: '新注册的小红书账号多久能通过审核？',
-      answer: '小红书新账号的审核通常在 24 小时内完成。审核通过后您可以正常发布笔记。\n\n需要注意的是：\n- 前 7 天建议每天只发 1 篇笔记\n- 内容避免含有商业推广信息\n- 不要使用违规词汇（如"最便宜""最好"等极限词）\n- 头像和简介与内容方向一致\n\n审核未通过时，系统会提示具体原因，按提示修改后重新提交即可。',
-      category: '小红书',
-      sort_order: 5,
-      pinned: 0
-    },
-    {
-      question: '如何删除自己的账号？',
-      answer: '目前暂未开放自主注销功能。如需注销账号，请通过客服邮箱（support@imai.work）联系我们，并提供注册手机号进行身份核验。我们将在 3 个工作日内为您处理。\n\n账号注销后将无法恢复，请谨慎操作。',
-      category: '账号',
-      sort_order: 6,
-      pinned: 0
-    }
+    { question: '养号需要多长时间？', answer: '一般来说，完整的养号周期需要 7-15 天。第一阶段（1-3 天）模拟真实用户行为，第二阶段（4-7 天）培养兴趣标签，第三阶段（8 天后）开始发布内容。具体时间因平台和个人情况而异。', category: '账号', sort_order: 1, pinned: 1 },
+    { question: '一个手机可以养多个账号吗？', answer: '不建议。大多数平台会检测设备信息，同一设备登录多个账号容易被判定为营销号。建议每个账号使用独立的设备和网络环境。', category: '账号', sort_order: 2, pinned: 0 },
+    { question: '教程内容可以转载到其他平台吗？', answer: '可以，但建议做适当的改编和二次创作。直接复制粘贴不利于 SEO，也容易被平台判定为重复内容。', category: '教程', sort_order: 3, pinned: 0 },
+    { question: '账号被限流了怎么办？', answer: '首先确认限流原因（是否违规、内容质量等），然后停止发布 3-7 天，期间正常互动养号，逐步恢复发布频率。严重限流可能需要重新注册账号。', category: '账号', sort_order: 4, pinned: 0 },
+    { question: '如何判断账号是否被限流？', answer: '主要看以下几个指标：播放量长期低于 200、没有推荐流量、搜索不到你的账号、发布内容不推送。如果出现以上情况，基本可以判定被限流了。', category: '账号', sort_order: 5, pinned: 0 },
+    { question: '教程内容多久更新一次？', answer: '我们会根据各平台规则变化定期更新教程内容。关注我们的更新通知，第一时间获取最新运营技巧。', category: '教程', sort_order: 6, pinned: 0 },
   ];
 
   for (const f of faqs) {
     insertFaq.run(f.question, f.answer, f.category, f.sort_order, f.pinned, 'active');
   }
 
-  // ===== 默认设置 =====
-  const insertSetting = db.prepare(`
-    INSERT INTO settings (key, value) VALUES (?, ?)
-  `);
-
-  const settings = [
-    ['site_name', 'I\'m ai work'],
-    ['sms_provider', ''],
-    ['sms_access_key', ''],
-    ['sms_secret', ''],
-    ['sms_sign', ''],
-    ['wechat_app_id', ''],
-    ['wechat_app_secret', ''],
-    ['feishu_app_id', ''],
-    ['feishu_app_secret', ''],
-    ['bitable_app_token', ''],
-    ['bitable_table_id', ''],
-    ['icp_number', ''],
+  // ===== 分类数据 =====
+  const insertCat = db.prepare(`INSERT INTO categories (name, icon, sort_order) VALUES (?, ?, ?)`);
+  const categories = [
+    { name: '抖音', icon: 'music', sort_order: 1 },
+    { name: '快手', icon: 'video', sort_order: 2 },
+    { name: '小红书', icon: 'book', sort_order: 3 },
+    { name: '微信', icon: 'message-circle', sort_order: 4 },
+    { name: '其他', icon: 'help-circle', sort_order: 5 },
   ];
 
-  for (const [k, v] of settings) {
-    insertSetting.run(k, v);
+  for (const c of categories) {
+    insertCat.run(c.name, c.icon, c.sort_order);
   }
 
   console.log('✅ Seed 数据写入完成');
-  console.log(`  - 管理员: 1 个`);
+  console.log(`  - 管理员: admin / admin123`);
+  console.log(`  - 用户: 13800000000 / user123`);
   console.log(`  - 教程: ${tutorials.length} 篇`);
   console.log(`  - FAQ: ${faqs.length} 条`);
-  console.log(`  - 设置: ${settings.length} 项`);
+  console.log(`  - 分类: ${categories.length} 个`);
 }
 
 module.exports = { getDb, initSchema, seedData };

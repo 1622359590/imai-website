@@ -15,16 +15,16 @@ export default function Footer() {
               href="https://beian.miit.gov.cn/"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-[#00d4ff] transition-colors"
+              className="hover:text-[#8b5cf6] transition-colors"
             >
               沪ICP备2024000000号
             </a>
             <span className="text-[#1e293b]">|</span>
-            <Link href="/faq" className="hover:text-[#00d4ff] transition-colors">
+            <Link href="/faq" className="hover:text-[#8b5cf6] transition-colors">
               常见问题
             </Link>
             <span className="text-[#1e293b]">|</span>
-            <Link href="/tutorials" className="hover:text-[#00d4ff] transition-colors">
+            <Link href="/tutorials" className="hover:text-[#8b5cf6] transition-colors">
               教程中心
             </Link>
           </div>

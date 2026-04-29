@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 
@@ -23,18 +22,15 @@ export default function AdminTutorialsPage() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('全部');
   const [status, setStatus] = useState('全部');
-  const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const fetchTutorials = () => {
     setLoading(true);
-    const params: Record<string, string> = {};
+    const params: { category?: string; status?: string } = {};
     if (category !== '全部') params.category = category;
     if (status !== '全部') params.status = status;
 
-    fetch(`http://localhost:37888/api/admin/tutorials?${new URLSearchParams(params)}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('imai-token')}` }
-    }).then(r => r.json()).then(res => {
+    adminApi.getTutorials(params).then(res => {
       setTutorials(res.tutorials || []);
     }).catch(console.error).finally(() => setLoading(false));
   };
@@ -66,7 +62,7 @@ export default function AdminTutorialsPage() {
             {categories.map((cat) => (
               <button key={cat} onClick={() => setCategory(cat)}
                 className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                  category === cat ? 'bg-[#00d4ff] text-white' : 'bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]'
+                  category === cat ? 'bg-[#8b5cf6] text-white' : 'bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]'
                 }`}>{cat}</button>
             ))}
           </div>
@@ -74,8 +70,8 @@ export default function AdminTutorialsPage() {
             {statuses.map((s) => (
               <button key={s} onClick={() => setStatus(s)}
                 className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                  status === s ? 'bg-[#00d4ff] text-white' : 'bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]'
-                }`}>{s === 'all' ? '全部' : s === 'published' ? '已发布' : '草稿'}</button>
+                  status === s ? 'bg-[#8b5cf6] text-white' : 'bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]'
+                }`}>{s === '全部' ? '全部' : s === 'published' ? '已发布' : '草稿'}</button>
             ))}
           </div>
         </div>
@@ -94,6 +90,7 @@ export default function AdminTutorialsPage() {
                 <th>标题</th>
                 <th>分类</th>
                 <th>状态</th>
+                <th>VIP</th>
                 <th>阅读</th>
                 <th>时间</th>
                 <th>操作</th>
@@ -112,13 +109,51 @@ export default function AdminTutorialsPage() {
                       {t.status === 'published' ? '已发布' : '草稿'}
                     </span>
                   </td>
+                  <td>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const newVal = t.vip_only === 1 ? 0 : 1;
+                        try {
+                          await adminApi.updateTutorial(t.id, { vip_only: newVal === 1 });
+                          showToast(newVal === 1 ? '🔒 已设为 VIP 专属' : '已取消 VIP', 'success');
+                          fetchTutorials();
+                        } catch (err: any) { showToast(err.message, 'error'); }
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border transition-all ${
+                        t.vip_only === 1
+                          ? 'bg-[#fef3c7] text-[#d97706] border-[#f59e0b]/30 shadow-sm'
+                          : 'bg-[#f8fafc] text-[#94a3b8] border-[#e2e8f0] hover:border-[#cbd5e1]'
+                      }`}
+                    >
+                      <svg className={`w-3 h-3 ${t.vip_only === 1 ? 'text-[#d97706]' : 'text-[#cbd5e1]'}`} viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                      {t.vip_only === 1 ? 'VIP' : '普通'}
+                    </button>
+                  </td>
                   <td>{t.views}</td>
                   <td className="text-[#94a3b8] text-xs">{t.created_at?.split(' ')[0]}</td>
                   <td>
                     <div className="flex gap-2">
-                      <Link href={`/admin/tutorials/${t.id}`} className="rounded px-2 py-1 text-xs text-[#00d4ff] hover:bg-[#00d4ff]/5 transition-colors">
+                      <Link href={`/admin/tutorials/${t.id}`} className="rounded px-2 py-1 text-xs text-[#8b5cf6] hover:bg-[#8b5cf6]/5 transition-colors">
                         编辑
                       </Link>
+                      {t.status === 'published' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await adminApi.updateTutorial(t.id, { status: 'draft' });
+                              showToast('已撤回为草稿', 'success');
+                              fetchTutorials();
+                            } catch (err: any) {
+                              showToast(err.message, 'error');
+                            }
+                          }}
+                          className="rounded px-2 py-1 text-xs text-[#f59e0b] hover:bg-[#fef3c7] transition-colors">
+                          撤回
+                        </button>
+                      )}
                       <button onClick={() => setDeleteId(t.id)} className="rounded px-2 py-1 text-xs text-[#ef4444] hover:bg-[#ef4444]/5 transition-colors">
                         删除
                       </button>

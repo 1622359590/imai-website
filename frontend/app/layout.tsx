@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "imai.work - 未来将是无人工",
@@ -16,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="h-full">
-      <body className={`${inter.className} min-h-full bg-white text-[#1e293b] antialiased flex flex-col`}>
+      <body className="min-h-full bg-white text-[#1e293b] antialiased flex flex-col">
         {children}
       </body>
     </html>

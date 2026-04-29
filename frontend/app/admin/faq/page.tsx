@@ -25,9 +25,7 @@ export default function AdminFAQPage() {
 
   const fetchFaqs = () => {
     setLoading(true);
-    fetch('http://localhost:37888/api/admin/faqs', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('imai-token')}` }
-    }).then(r => r.json()).then(res => {
+    adminApi.getFaqs().then(res => {
       setFaqs(res.faqs || []);
     }).catch(console.error).finally(() => setLoading(false));
   };
@@ -117,7 +115,7 @@ export default function AdminFAQPage() {
                   </td>
                   <td>
                     <div className="flex gap-2">
-                      <button onClick={() => openEdit(f)} className="rounded px-2 py-1 text-xs text-[#00d4ff] hover:bg-[#00d4ff]/5">编辑</button>
+                      <button onClick={() => openEdit(f)} className="rounded px-2 py-1 text-xs text-[#8b5cf6] hover:bg-[#8b5cf6]/5">编辑</button>
                       <button onClick={() => setDeleteId(f.id)} className="rounded px-2 py-1 text-xs text-[#ef4444] hover:bg-[#ef4444]/5">删除</button>
                     </div>
                   </td>

@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { faqApi } from '@/lib/api';
 
-const categories = ['全部', '账号', '教程', '抖音', '快手', '小红书', '微信', '通用'];
+const defaultCategories = ['全部', '账号', '教程', '抖音', '快手', '小红书', '微信', '通用'];
 
 interface Faq {
   id: number;
@@ -21,16 +21,26 @@ export default function FAQPage() {
   const [activeCategory, setActiveCategory] = useState('全部');
   const [search, setSearch] = useState('');
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [categories, setCategories] = useState(defaultCategories);
 
   useEffect(() => {
-    setLoading(true);
     const params: { category?: string; search?: string } = {};
     if (activeCategory !== '全部') params.category = activeCategory;
     if (search) params.search = search;
 
-    faqApi.getList(params).then((res) => {
-      setFaqs(res.faqs || []);
-    }).catch(console.error).finally(() => setLoading(false));
+    // 仅首次加载显示 loading，切换分类时静默更新
+    if (faqs.length === 0) setLoading(true);
+
+    faqApi.getList({}).then((allRes) => {
+      const allFaqs: Faq[] = allRes.faqs || [];
+      const catSet = new Set<string>();
+      allFaqs.forEach(f => catSet.add(f.category));
+      setCategories(['全部', ...Array.from(catSet)]);
+      // 按筛选参数获取数据
+      faqApi.getList(params).then((res) => {
+        setFaqs(res.faqs || []);
+      }).catch(console.error).finally(() => setLoading(false));
+    }).catch(console.error);
   }, [activeCategory, search]);
 
   return (
@@ -57,14 +67,14 @@ export default function FAQPage() {
 
           {/* 分类 */}
           <div className="mb-8 flex flex-wrap gap-2">
-            {categories.map((cat) => (
+            {categories.map((cat, ci) => (
               <button
-                key={cat}
+                key={ci}
                 onClick={() => setActiveCategory(cat)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 ${
                   activeCategory === cat
-                    ? 'bg-[#00d4ff] text-white'
-                    : 'bg-white text-[#94a3b8] border border-[#e2e8f0] hover:border-[#00d4ff]'
+                    ? 'bg-[#8b5cf6] text-white'
+                    : 'bg-white text-[#94a3b8] border border-[#e2e8f0] hover:border-[#8b5cf6]'
                 }`}
               >
                 {cat}
@@ -96,7 +106,7 @@ export default function FAQPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                       {faq.pinned === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff]">置顶</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-[#8b5cf6]/10 text-[#8b5cf6]">置顶</span>
                       )}
                       <h3 className="text-sm font-medium text-[#1e293b]">{faq.question}</h3>
                     </div>
@@ -112,13 +122,11 @@ export default function FAQPage() {
                       </svg>
                     </div>
                   </div>
-                  <div
-                    className={`accordion-content overflow-hidden transition-all ${
-                      activeId === faq.id ? 'max-h-[2000px]' : 'max-h-0'
-                    }`}
-                  >
-                    <div className={`${activeId === faq.id ? 'mt-3 pt-3 border-t border-[#e2e8f0]' : ''}`}>
-                      <p className="text-sm leading-relaxed text-[#94a3b8] whitespace-pre-wrap">{faq.answer}</p>
+                  <div className={`accordion-grid ${activeId === faq.id ? 'open' : ''}`}>
+                    <div>
+                      <div className="mt-3 pt-3 border-t border-[#e2e8f0]">
+                        <p className="text-sm leading-relaxed text-[#94a3b8] whitespace-pre-wrap">{faq.answer}</p>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -118,7 +118,7 @@ export default function RegisterPage() {
 
             <div className="mt-6 text-center text-sm text-[#475569]">
               已有账号？
-              <Link href="/login" className="ml-1 text-[#00d4ff] hover:underline">去登录</Link>
+              <Link href="/login" className="ml-1 text-[#8b5cf6] hover:underline">去登录</Link>
             </div>
           </div>
         </div>

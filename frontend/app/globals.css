@@ -2,9 +2,9 @@
 
 /* ===== Light Theme ===== */
 :root {
-  --accent: #00d4ff;
-  --accent-dim: #0099bb;
-  --accent-glow: rgba(0, 212, 255, 0.15);
+  --accent: #8b5cf6;
+  --accent-dim: #7c3aed;
+  --accent-glow: rgba(139, 92, 246, 0.15);
   --accent-glow-strong: rgba(0, 212, 255, 0.3);
   --accent2: #a855f7;
   --bg-primary: #ffffff;
@@ -21,9 +21,9 @@
 }
 
 @theme inline {
-  --color-accent: #00d4ff;
-  --color-accent-dim: #0099bb;
-  --color-accent-glow: rgba(0, 212, 255, 0.15);
+  --color-accent: #8b5cf6;
+  --color-accent-dim: #7c3aed;
+  --color-accent-glow: rgba(139, 92, 246, 0.15);
   --color-accent-glow-strong: rgba(0, 212, 255, 0.3);
   --color-accent2: #a855f7;
   --color-bg-primary: #ffffff;
@@ -52,7 +52,7 @@
 body {
   background-color: #ffffff;
   color: #1e293b;
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
 }
 
 /* ========== 组件基础样式 ========== */
@@ -74,12 +74,12 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #00d4ff, #0099bb);
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 212, 255, 0.25);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
 }
 .btn-primary:hover {
-  box-shadow: 0 4px 16px rgba(0, 212, 255, 0.4);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
   transform: translateY(-1px);
 }
 
@@ -89,8 +89,8 @@ body {
   border: 1px solid #e2e8f0;
 }
 .btn-secondary:hover {
-  border-color: #00d4ff;
-  color: #00d4ff;
+  border-color: #8b5cf6;
+  color: #8b5cf6;
   background: #f8fafc;
 }
 
@@ -135,8 +135,8 @@ body {
   transition: border-color 0.2s;
 }
 .input:focus {
-  border-color: #00d4ff;
-  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 .input::placeholder {
   color: #94a3b8;
@@ -156,7 +156,7 @@ body {
   cursor: pointer;
 }
 .select:focus {
-  border-color: #00d4ff;
+  border-color: #8b5cf6;
 }
 .select option {
   background: #ffffff;
@@ -171,9 +171,9 @@ body {
   font-size: 0.75rem;
   font-weight: 500;
   border-radius: 9999px;
-  background: rgba(0, 212, 255, 0.08);
-  color: #0099bb;
-  border: 1px solid rgba(0, 212, 255, 0.15);
+  background: rgba(139, 92, 246, 0.08);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.15);
 }
 
 /* Toast */
@@ -201,14 +201,19 @@ body {
   border: 1px solid #fecaca;
 }
 
-/* 手风琴 */
-.accordion-content {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease, padding 0.3s ease;
+/* 手风琴 — 用 CSS Grid 实现流畅动画 */
+.accordion-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
 }
-.accordion-content.open {
-  max-height: 1000px;
+.accordion-grid.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.accordion-grid > * {
+  overflow: hidden;
 }
 
 /* Markdown 内容（前台亮色版） */
@@ -239,13 +244,13 @@ body {
   padding: 0;
 }
 .markdown-body blockquote {
-  border-left: 3px solid #00d4ff;
+  border-left: 3px solid #8b5cf6;
   padding-left: 1rem;
   margin: 1rem 0;
   color: #64748b;
 }
 .markdown-body a {
-  color: #00d4ff;
+  color: #8b5cf6;
   text-decoration: underline;
 }
 .markdown-body hr {
@@ -297,8 +302,8 @@ body {
   color: #1e293b;
 }
 .admin-content .input:focus {
-  border-color: #00d4ff;
-  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 .admin-content .select {
   background: #ffffff;
@@ -306,7 +311,7 @@ body {
   color: #1e293b;
 }
 .admin-content .select:focus {
-  border-color: #00d4ff;
+  border-color: #8b5cf6;
 }
 .admin-content .select option {
   background: #fff;
@@ -318,8 +323,8 @@ body {
   border-color: #e2e8f0;
 }
 .admin-content .btn-secondary:hover {
-  border-color: #00d4ff;
-  color: #00d4ff;
+  border-color: #8b5cf6;
+  color: #8b5cf6;
 }
 .admin-content table {
   border-collapse: collapse;
@@ -355,19 +360,19 @@ body {
 }
 .admin-sidebar .nav-link:hover {
   background: #f8fafc;
-  color: #00d4ff;
+  color: #8b5cf6;
 }
 .admin-sidebar .nav-link.active {
   background: #f0f9ff;
-  color: #00d4ff;
+  color: #8b5cf6;
   border-color: #e2e8f0;
 }
 .admin-sidebar .nav-icon {
   color: #94a3b8;
 }
 .admin-sidebar .nav-link:hover .nav-icon {
-  color: #00d4ff;
+  color: #8b5cf6;
 }
 .admin-sidebar .nav-link.active .nav-icon {
-  color: #00d4ff;
+  color: #8b5cf6;
 }
