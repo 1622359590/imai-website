@@ -4,6 +4,40 @@
 
 > **"未来将是无人工"**
 
+---
+
+## 关于本系统 / About
+
+### 🇨🇳 中文
+
+这套系统源于一个很现实的痛点——**售后压力**。
+
+在公司日常运营中，大量重复的咨询问题占据了售后团队大部分精力："这个怎么用？""那里怎么配置？""为什么出错了？" 每一个问题背后都是一个真实用户的困惑，也是一次售后人员的时间消耗。
+
+所以我做了这个系统。
+
+核心思路很简单：**把常见问题变成教程，把重复解答变成自助查找。** 用户遇到问题先来教程中心搜一搜，FAQ 翻一翻，工单提交也带着上下文信息，售后团队收到的不再是"帮我看看"这种模糊请求，而是有类型、有描述、有附件的结构化工单。
+
+未来计划接入 AI 能力：自动问答、智能推荐教程、工单自动分类……让系统能自主消化掉 80% 的重复咨询，让售后人员真正只处理那些需要人工介入的问题。
+
+> 做这个系统的本心就一句话：**少一点售后焦虑，多一点产品时间。**
+
+### 🇬🇧 English
+
+This system was born from a very real pain point — **after-sales support overload**.
+
+In daily operations, repetitive questions drain support teams: "How do I use this?" "Where do I configure that?" "Why is it broken?" Behind every question is a confused user, and behind every answer is a support agent's precious time.
+
+So I built this system.
+
+The core idea is simple: **turn common questions into tutorials, transform repetitive answers into self-service.** Users search the tutorial center first, browse the FAQ, or submit structured tickets with context — no more vague "help me check this" requests.
+
+Future plans include AI integration: auto-answering, smart tutorial recommendations, automated ticket classification... Let the system absorb 80% of repetitive inquiries, so support teams focus only on what truly needs human intervention.
+
+> One sentence sums it up: **Less support anxiety, more product time.**
+
+---
+
 ## 功能概览
 
 ### 前台（用户端）
