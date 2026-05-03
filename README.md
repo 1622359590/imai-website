@@ -1,6 +1,6 @@
 # AI 工单系统
 
-一站式 AI 知识教程 + 工单管理平台 —— 教程中心、FAQ、工单系统、VIP 会员
+一站式 AI 知识教程 + 智能客服 + 工单管理平台 —— 教程中心、FAQ、AI 客服、工单系统、VIP 会员
 
 > **"未来将是无人工"**
 
@@ -17,9 +17,9 @@ In daily operations, repetitive questions drain support teams: "How do I use thi
 
 So I built this system.
 
-The core idea is simple: **turn common questions into tutorials, transform repetitive answers into self-service.** Users search the tutorial center first, browse the FAQ, or submit structured tickets with context — no more vague "help me check this" requests.
+The core idea: **turn common questions into tutorials, transform repetitive answers into AI-powered self-service.** Users first chat with the AI assistant (imai小助手), which answers from a structured knowledge base. If the AI can't solve it, the conversation auto-converts into a structured ticket with full context.
 
-Future plans include AI integration: auto-answering, smart tutorial recommendations, automated ticket classification... Let the system absorb 80% of repetitive inquiries, so support teams focus only on what truly needs human intervention.
+Future plans include RAG-powered knowledge retrieval, multi-modal understanding (images/videos), and auto-generated content.
 
 > **Less support anxiety, more product time.**
 
@@ -31,54 +31,54 @@ Future plans include AI integration: auto-answering, smart tutorial recommendati
 
 所以我做了这个系统。
 
-核心思路很简单：**把常见问题变成教程，把重复解答变成自助查找。** 用户遇到问题先来教程中心搜一搜，FAQ 翻一翻，工单提交也带着上下文信息，售后团队收到的不再是"帮我看看"这种模糊请求，而是有类型、有描述、有附件的结构化工单。
-
-未来计划接入 AI 能力：自动问答、智能推荐教程、工单自动分类……让系统能自主消化掉 80% 的重复咨询，让售后人员真正只处理那些需要人工介入的问题。
+核心思路：**把常见问题变成教程，把重复解答交给 AI。** 用户遇到问题先问 imai小助手，AI 从知识库中检索答案；如果 AI 解决不了，一键转人工，对话记录自动带入工单，工程师直接看到完整上下文。
 
 > 做这个系统的本心就一句话：**少一点售后焦虑，多一点产品时间。**
 
-### 🤖 AI 路线图
-
-最终目标是让 AI 吃掉整个知识库，变成一个真正的智能售后助手：
-
-- 🧠 **知识库投喂** — 将教程、FAQ、工单记录全部结构化，作为 AI 的训练语料
-- 💬 **智能问答** — 用户直接提问，AI 从知识库中检索答案，无需人工介入
-- 📌 **教程推荐** — 根据用户提问，自动推荐相关教程
-- 🎫 **工单自动分类** — AI 自动识别工单类型、紧急程度，分配合适的售后人员
-- 📊 **知识库自愈** — 发现知识库缺失的内容，自动生成草稿供管理员审核
-
 ---
 
-## 功能概览
+## ✨ 核心功能
 
-### 前台（用户端）
+### 🤖 AI 智能客服（imai小助手）
 
-| 页面 | 说明 |
+| 功能 | 说明 |
 |------|------|
-| 🏠 **首页** | 搜索教程、分类导航、最新教程、FAQ |
-| 📚 **教程中心** | 分类筛选、搜索、卡片列表 (支持 VIP 专属内容) |
-| ❓ **FAQ** | 搜索、分类筛选、手风琴动画展开 |
-| 🎫 **工单提交** | 工单类型选择、附件上传(图片/视频/文件)、工单记录 |
-| 🔐 **登录/注册** | 手机号 + 密码注册登录 (独立前台用户体系) |
+| 💬 **AI 对话** | 打字机效果、图片上传/拖拽、Enter 发送 |
+| 📚 **RAG 知识库** | BM25 + 向量混合检索、同义词扩展、自动索引 |
+| 📄 **文档导入** | 支持 Word 文档批量导入知识库 |
+| 👍👎 **答案评分** | 用户对 AI 回答打分，持续优化 |
+| 🔄 **转人工** | 确认弹窗 + 智能标题 + 对话预览，一键转工单 |
+| 📜 **历史对话** | 侧边栏查看过往对话记录 |
+| ⚙️ **可配置** | 后台设置 AI 服务商、模型、人设、知识库 |
 
-### 后台（管理端）— `/admin-login`
+### 🎫 工单系统
 
-| 页面 | 说明 |
+| 功能 | 说明 |
 |------|------|
-| 📊 **仪表盘** | 统计数据 (教程/FAQ/用户数) |
-| 📝 **教程管理** | 增删改查 + 富文本编辑器 (WangEditor)、VIP 专属开关 |
-| ❓ **FAQ 管理** | 增删改查 + 弹窗编辑 |
-| 👥 **用户管理** | 前台用户列表、VIP 状态管理 |
-| ⭐ **VIP 会员** | 设置/取消 VIP、时长管理 |
-| 🔐 **管理员管理** | 创建/删除管理员账号 (独立 admin 表) |
-| ⚙️ **系统设置** | 网站信息、短信平台、微信登录、飞书集成 |
+| 📋 **看板模式** | 用户端先看工单列表，再提交新工单 |
+| 🔍 **后台管理** | 状态筛选、导出 CSV、处理人追踪 |
+| 💬 **管理员回复** | 回复内容用户端实时可见 |
+| 🏷️ **售后群名** | 关联企业微信群，方便定位客户 |
+| 🔔 **通知推送** | 新工单自动推送飞书/企业微信群 |
+| 📎 **附件上传** | 支持图片、视频、PDF、文档 |
 
-### 预置内容
+### 📚 教程 & FAQ
 
-- **8 篇教程**：抖音/快手/小红书/微信养号攻略（每篇千字真实内容）
-- **6 条 FAQ**：常见问题
-- **管理员账号**：`admin` / `admin123`
-- **测试用户**：`13800000000` / `user123`
+| 功能 | 说明 |
+|------|------|
+| 📖 **教程中心** | 分类筛选、搜索、VIP 专属内容 |
+| ❓ **FAQ** | 手风琴动画、分类筛选、动态分类 |
+| ✏️ **富文本编辑** | WangEditor 全中文编辑器 |
+| 👑 **VIP 体系** | 教程 VIP 锁定、会员管理 |
+
+### 👥 用户 & 管理
+
+| 功能 | 说明 |
+|------|------|
+| 🔐 **双用户体系** | 前台用户 + 后台管理员，独立表独立 JWT |
+| 📊 **数据仪表盘** | 教程/FAQ/用户/工单 统计 |
+| ⚙️ **系统设置** | 分区导航：网站信息、短信、微信、飞书、工单通知、AI 客服、素材生成 |
+| 🏷️ **客户分类** | 客户身份标签管理 |
 
 ---
 
@@ -89,11 +89,11 @@ Future plans include AI integration: auto-answering, smart tutorial recommendati
 | 前端 | Next.js 16 + React 19 + TypeScript + Tailwind CSS v4 |
 | 后端 | Node.js + Express |
 | 数据库 | SQLite (better-sqlite3) |
+| AI | DeepSeek API + BM25/向量混合检索 (RAG) |
 | 认证 | 双 JWT (前后台独立密钥) |
-| 编辑器 | WangEditor (@wangeditor/editor-for-react) 全中文富文本 |
-| 短信 | 预留接口（阿里云/腾讯云） |
-| 第三方 | 微信扫码登录（预留）、飞书多维表格集成 (工单同步) |
-| 存储 | 本地文件系统 / 阿里云 OSS (预留) |
+| 编辑器 | WangEditor 全中文富文本 |
+| 通知 | 飞书/企业微信 Webhook |
+| 第三方 | 飞书多维表格集成、微信登录（预留） |
 
 ---
 
@@ -124,6 +124,38 @@ npm run dev
 
 ---
 
+## 页面路由
+
+### 前台（用户端）
+
+| 路由 | 说明 |
+|------|------|
+| `/` | 首页 |
+| `/tutorials` | 教程中心 |
+| `/faq` | FAQ |
+| `/support` | 🤖 imai小助手（AI 客服） |
+| `/ticket` | 我的工单（看板模式） |
+| `/ticket/:id` | 工单详情 |
+| `/login` | 用户登录 |
+| `/register` | 用户注册 |
+
+### 后台（管理端）— `/admin-login`
+
+| 路由 | 说明 |
+|------|------|
+| `/admin` | 仪表盘（含工单统计） |
+| `/admin/tutorials` | 教程管理 |
+| `/admin/faq` | FAQ 管理 |
+| `/admin/users` | 用户管理 |
+| `/admin/admins` | 管理员管理 |
+| `/admin/levels` | 客户分类 |
+| `/admin/tickets` | 🎫 工单管理 |
+| `/admin/ai` | 📚 AI 知识库 |
+| `/admin/ai/conversations` | 💬 AI 对话记录 |
+| `/admin/settings` | ⚙️ 系统设置 |
+
+---
+
 ## 登录方式
 
 ### 管理员登录
@@ -134,7 +166,7 @@ npm run dev
 |--------|------|
 | `admin` | `admin123` |
 
-> 管理员和前台用户使用**完全独立的用户表**和 JWT 密钥，登录状态互不影响。
+> 管理员和前台用户使用**完全独立的用户表**和 JWT 密钥。
 
 ### 前台用户登录
 
@@ -148,61 +180,47 @@ npm run dev
 
 ## API 概览
 
-| 类型 | 端点 | 说明 |
-|------|------|------|
-| **公开** | `GET /api/tutorials` | 教程列表 |
-| | `GET /api/tutorials/:id` | 教程详情 (含 VIP 检查) |
-| | `POST /api/tutorials/:id/view` | 增加阅读数 |
-| | `GET /api/faqs` | FAQ 列表 |
-| | `GET /api/categories` | 分类列表 |
-| | `POST /api/ai/ask` | AI 问答 |
-| **用户** | `POST /api/auth/register` | 注册 |
-| | `POST /api/auth/login` | 登录 |
-| | `GET /api/auth/me` | 获取用户信息 |
-| | `POST /api/tickets` | 提交工单 (含飞书同步) |
-| | `GET /api/user/tickets` | 我的工单 |
-| **管理** | `POST /api/admin/auth/login` | 管理员登录 (独立表) |
-| | `GET/POST/PUT/DELETE /api/admin/tutorials` | 教程 CRUD |
-| | `GET/POST/PUT/DELETE /api/admin/faqs` | FAQ CRUD |
-| | `GET/PUT /api/admin/settings` | 系统设置 |
-| | `GET /api/admin/stats` | 统计 |
-| | `GET/POST /api/admin/users` | 前台用户管理 |
-| | `PUT /api/admin/users/:id/vip` | VIP 管理 |
-| | `GET/POST/DELETE /api/admin/admins` | 管理员账号管理 |
-| | `POST /api/upload/file` | 文件上传 |
+### 公开接口
 
----
+| 端点 | 说明 |
+|------|------|
+| `GET /api/tutorials` | 教程列表 |
+| `GET /api/tutorials/:id` | 教程详情 |
+| `GET /api/faqs` | FAQ 列表 |
+| `GET /api/categories` | 分类列表 |
 
-## 项目结构
+### 用户接口
 
-```
-imai-website/
-├── backend/
-│   ├── server.js              # Express 主入口
-│   ├── database/
-│   │   └── schema.js          # SQLite 建表 + seed 数据
-│   ├── middleware/
-│   │   └── auth.js            # 双 JWT 验证 (前台/后台)
-│   └── services/
-│       └── feishu.js          # 飞书多维表格 API
-├── frontend/
-│   ├── app/                   # Next.js App Router
-│   │   ├── page.tsx           # 首页
-│   │   ├── tutorials/         # 教程中心
-│   │   ├── faq/               # FAQ
-│   │   ├── ticket/            # 工单提交
-│   │   ├── login/             # 用户登录
-│   │   ├── register/          # 用户注册
-│   │   ├── admin-login/       # 管理员登录 (独立入口)
-│   │   └── admin/             # 管理后台
-│   ├── components/
-│   │   ├── layout/            # Header, Footer, AdminSidebar
-│   │   └── ui/                # Toast, VIPBadge, SettingsModal, RichEditor
-│   └── lib/
-│       └── api.ts             # API 封装 (前台/后台双 token)
-└── scripts/
-    └── light-theme.js         # 主题转换脚本
-```
+| 端点 | 说明 |
+|------|------|
+| `POST /api/auth/register` | 注册 |
+| `POST /api/auth/login` | 登录 |
+| `GET /api/auth/me` | 用户信息 |
+| `POST /api/tickets` | 提交工单 |
+| `GET /api/user/tickets` | 我的工单 |
+| `GET /api/tickets/:id` | 工单详情 |
+| `POST /api/ai/conversations` | 创建 AI 对话 |
+| `POST /api/ai/chat` | 发送消息 |
+| `GET /api/ai/conversations` | 对话历史 |
+| `POST /api/ai/messages/:id/rate` | 答案评分 |
+| `POST /api/ai/conversations/:id/transfer` | 转人工 |
+
+### 管理接口
+
+| 端点 | 说明 |
+|------|------|
+| `POST /api/admin/auth/login` | 管理员登录 |
+| `GET /api/admin/stats` | 统计数据 |
+| `GET/POST/PUT/DELETE /api/admin/tutorials` | 教程 CRUD |
+| `GET/POST/PUT/DELETE /api/admin/faqs` | FAQ CRUD |
+| `GET/POST /api/admin/users` | 用户管理 |
+| `GET/PUT /api/admin/tickets` | 工单管理 |
+| `PUT /api/admin/tickets/:id` | 更新工单（状态+回复） |
+| `GET/POST/PUT/DELETE /api/admin/ai/knowledge` | 知识库 CRUD |
+| `GET /api/admin/ai/conversations` | AI 对话记录 |
+| `POST /api/admin/ai/rebuild-index` | 重建 RAG 索引 |
+| `GET/PUT /api/admin/settings` | 系统设置 |
+| `POST /api/upload/file` | 文件上传 |
 
 ---
 
@@ -214,26 +232,69 @@ imai-website/
 
 | 表 | 说明 |
 |----|------|
-| `users` | 前台用户 (phone, password, nickname, vip) |
-| `admins` | 后台管理员 (username, password, nickname, role) |
-| `tutorials` | 教程 (title, category, content, vip_only) |
-| `faqs` | FAQ (question, answer, category) |
-| `tickets` | 工单 (title, description, attachments, user_id) |
-| `categories` | 分类 (name, icon) |
-| `settings` | 系统设置 (key-value) |
-| `knowledge_base` | 知识库 (预留) |
+| `users` | 前台用户 |
+| `admins` | 后台管理员 |
+| `tutorials` | 教程 |
+| `faqs` | FAQ |
+| `tickets` | 工单（含 reply、processed_by、group_name） |
+| `ai_conversations` | AI 对话 |
+| `ai_messages` | AI 消息（含评分） |
+| `ai_knowledge` | AI 知识库 |
+| `settings` | 系统设置 |
+| `customer_levels` | 客户分类 |
 
 首次启动自动建表并写入 seed 数据。
 
 ---
 
+## 项目结构
+
+```
+imai-website/
+├── backend/
+│   ├── server.js              # Express 主入口（所有路由）
+│   ├── database/
+│   │   └── schema.js          # SQLite 建表 + 迁移 + seed
+│   ├── middleware/
+│   │   └── auth.js            # 双 JWT 验证
+│   ├── services/
+│   │   ├── ai.js              # AI 客服（LLM 调用）
+│   │   ├── rag.js             # RAG 检索（BM25 + 向量）
+│   │   ├── feishu.js          # 飞书多维表格
+│   │   └── notify.js          # 工单通知（Webhook）
+│   ├── .env.example           # 环境变量示例
+│   └── uploads/               # 上传文件（gitignore）
+├── frontend/
+│   ├── app/
+│   │   ├── page.tsx           # 首页
+│   │   ├── tutorials/         # 教程中心
+│   │   ├── faq/               # FAQ
+│   │   ├── support/           # 🤖 imai小助手
+│   │   ├── ticket/            # 工单（看板 + 详情）
+│   │   ├── login/             # 登录
+│   │   ├── register/          # 注册
+│   │   ├── admin-login/       # 管理员登录
+│   │   └── admin/
+│   │       ├── page.tsx       # 仪表盘
+│   │       ├── tutorials/     # 教程管理
+│   │       ├── faq/           # FAQ 管理
+│   │       ├── users/         # 用户管理
+│   │       ├── admins/        # 管理员管理
+│   │       ├── levels/        # 客户分类
+│   │       ├── tickets/       # 🎫 工单管理
+│   │       ├── ai/            # 📚 AI 知识库 + 对话记录
+│   │       └── settings/      # ⚙️ 系统设置
+│   ├── components/
+│   │   ├── layout/            # Header, Footer, AdminSidebar
+│   │   └── ui/                # Toast, VIPBadge, SettingsModal
+│   └── lib/
+│       └── api.ts             # API 封装（前台+后台+AI）
+└── docker-compose.yml
+```
+
+---
+
 ## Docker 部署
-
-### 前置要求
-
-- Docker & Docker Compose
-
-### 一键启动
 
 ```bash
 docker-compose up -d --build
@@ -241,31 +302,30 @@ docker-compose up -d --build
 # 前端 http://localhost:3000
 ```
 
-### 环境变量
+---
 
-可以在 `docker-compose.yml` 中配置以下环境变量：
+## 配置说明
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `JWT_SECRET` | 前台用户 JWT 密钥 | `imai-work-dev-key-2024` |
-| `ADMIN_JWT_SECRET` | 管理员 JWT 密钥 | `imai-admin-secret-key-2024` |
-| `CORS_ORIGIN` | 允许的跨域来源 | `http://localhost:3000` |
+### AI 客服配置
 
-数据持久化：
-- 数据库文件保存在 Docker volume `backend-data` 中
-- 上传文件保存在 Docker volume `backend-uploads` 中
+在后台 → 设置 → AI 客服中配置：
 
-### 手动构建
+| 配置项 | 说明 |
+|--------|------|
+| AI 服务商 | DeepSeek / OpenAI / 通义千问 |
+| API Key | 对应平台的密钥 |
+| 模型 | 如 `deepseek-chat` |
+| AI 人设 | System Prompt，定义 AI 的角色和回答风格 |
+| 知识库 | 在 `/admin/ai` 中管理知识条目 |
 
-```bash
-# 后端
-docker build -t ai-ticket-backend ./backend
-docker run -d -p 37888:37888 -v backend-data:/app/data -v backend-uploads:/app/uploads ai-ticket-backend
+### 工单通知配置
 
-# 前端
-docker build -t ai-ticket-frontend ./frontend
-docker run -d -p 3000:3000 ai-ticket-frontend
-```
+在后台 → 设置 → 工单通知中配置：
+
+| 配置项 | 说明 |
+|--------|------|
+| 通知渠道 | 飞书机器人 / 企业微信机器人 |
+| Webhook 地址 | 群机器人的 Webhook URL |
 
 ---
 
