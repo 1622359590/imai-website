@@ -8,6 +8,9 @@ const multer = require('multer');
 const { getDb, initSchema, seedData } = require('./database/schema');
 const { verifyToken, verifyAdminToken, requireAdmin, JWT_SECRET, ADMIN_JWT_SECRET } = require('./middleware/auth');
 const { createRecord: feishuCreateRecord } = require('./services/feishu');
+const { sendTicketNotification } = require('./services/notify');
+const { chat: aiChat, getAIConfig } = require('./services/ai');
+const { rebuildIndex: rebuildRagIndex } = require('./services/rag');
 
 const app = express();
 const PORT = 37888;
@@ -48,13 +51,33 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp|svg|mp4/;
+    const allowedTypes = /jpeg|jpg|png|gif|webp|svg|mp4|pdf|doc|docx|zip/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     if (extname || mimetype) {
       cb(null, true);
     } else {
       cb(new Error('不支持的文件类型'));
+    }
+  }
+});
+
+// CSV 导入专用 multer（只接受 CSV）
+const csvStorage = multer.diskStorage({
+  destination: path.join(__dirname, 'uploads'),
+  filename: (req, file, cb) => {
+    cb(null, 'import_' + Date.now() + '.csv');
+  }
+});
+const uploadCSV = multer({
+  storage: csvStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.csv' || file.mimetype === 'text/csv' || file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('请上传 CSV 文件'));
     }
   }
 });
@@ -179,7 +202,7 @@ app.post('/api/admin/auth/login', (req, res) => {
 app.get('/api/auth/me', verifyToken, (req, res) => {
   try {
     const db = getDb();
-    const user = db.prepare('SELECT id, phone, nickname, avatar, vip, vip_expires_at, created_at FROM users WHERE id = ?').get(req.user.id);
+    const user = db.prepare('SELECT u.id, u.phone, u.nickname, u.avatar, u.vip, u.vip_expires_at, u.customer_level_id, u.created_at, cl.name as customer_level_name FROM users u LEFT JOIN customer_levels cl ON u.customer_level_id = cl.id WHERE u.id = ?').get(req.user.id);
 
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
@@ -609,16 +632,16 @@ app.post('/api/tickets', verifyToken, async (req, res) => {
 
     // 同步写入飞书多维表格（如已配置）
     try {
-      // 自动获取用户 VIP 等级
-      const userInfo = db.prepare('SELECT vip, nickname, phone FROM users WHERE id = ?').get(req.user.id);
-      const vipLevel = userInfo && userInfo.vip === 1 ? 'VIP 会员' : '普通用户';
+      // 自动获取用户信息及客户身份分类
+      const userInfo = db.prepare('SELECT u.*, cl.name as customer_level_name FROM users u LEFT JOIN customer_levels cl ON u.customer_level_id = cl.id WHERE u.id = ?').get(req.user.id);
+      const customerLevelName = userInfo?.customer_level_name || '';
       const attachmentLinks = (attachments || []).map(function(a) { return a.url || a.filename; }).join('\n');
       await feishuCreateRecord({
         '工单标题': title,
         '工单描述': description || '',
         '提交人': name || userInfo?.nickname || '用户' + req.user.id,
         '联系方式': contact || userInfo?.phone || '',
-        '会员等级': vipLevel,
+        '客户身份分类': customerLevelName,
         '工单类型': type || 'consult',
         '状态': '待处理',
         '售后群聊': group_name || '',
@@ -627,6 +650,18 @@ app.post('/api/tickets', verifyToken, async (req, res) => {
       });
     } catch (feishuErr) {
       console.warn('飞书写入失败（不影响本地存储）:', feishuErr.message);
+    }
+
+    // 发送工单通知（飞书/企业微信 Webhook）
+    try {
+      await sendTicketNotification({
+        ...ticket,
+        name: name || '',
+        contact: contact || '',
+        group_name: group_name || '',
+      });
+    } catch (notifyErr) {
+      console.warn('工单通知发送失败（不影响工单创建）:', notifyErr.message);
     }
 
     res.status(201).json({ message: '工单提交成功', ticket });
@@ -653,7 +688,7 @@ app.get('/api/admin/tickets', verifyAdminToken, requireAdmin, (req, res) => {
   try {
     const db = getDb();
     const { status } = req.query;
-    let sql = 'SELECT t.*, u.nickname, u.phone FROM tickets t LEFT JOIN users u ON t.user_id = u.id';
+    let sql = 'SELECT t.*, u.nickname, u.phone, a.username as processor_name FROM tickets t LEFT JOIN users u ON t.user_id = u.id LEFT JOIN admins a ON t.processed_by = a.id';
     const params = [];
 
     if (status) {
@@ -670,10 +705,10 @@ app.get('/api/admin/tickets', verifyAdminToken, requireAdmin, (req, res) => {
   }
 });
 
-// 管理员更新工单状态
+// 管理员更新工单状态 + 回复
 app.put('/api/admin/tickets/:id', verifyAdminToken, requireAdmin, (req, res) => {
   try {
-    const { status, note } = req.body;
+    const { status, reply } = req.body;
     const db = getDb();
 
     const existing = db.prepare('SELECT id FROM tickets WHERE id = ?').get(req.params.id);
@@ -681,13 +716,48 @@ app.put('/api/admin/tickets/:id', verifyAdminToken, requireAdmin, (req, res) => 
       return res.status(404).json({ error: '工单不存在' });
     }
 
-    db.prepare(`UPDATE tickets SET status = COALESCE(?, status), updated_at = datetime('now','localtime') WHERE id = ?`).run(status || null, req.params.id);
+    db.prepare(`UPDATE tickets SET status = COALESCE(?, status), reply = COALESCE(?, reply), processed_by = ?, updated_at = datetime('now','localtime') WHERE id = ?`).run(status || null, reply ?? null, req.admin.id, req.params.id);
 
-    const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
+    const ticket = db.prepare(`SELECT t.*, u.nickname, u.phone,
+      a.username as processor_name
+      FROM tickets t
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN admins a ON t.processed_by = a.id
+      WHERE t.id = ?`).get(req.params.id);
     res.json({ message: '更新成功', ticket });
   } catch (err) {
     console.error('更新工单失败:', err);
     res.status(500).json({ error: '更新工单失败' });
+  }
+});
+
+// 管理员工单统计
+app.get('/api/admin/tickets/stats', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const total = db.prepare('SELECT COUNT(*) as count FROM tickets').get().count;
+    const pending = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'pending'").get().count;
+    const processing = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'processing'").get().count;
+    const resolved = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'resolved'").get().count;
+    res.json({ stats: { total, pending, processing, resolved } });
+  } catch (err) {
+    console.error('获取工单统计失败:', err);
+    res.status(500).json({ error: '获取工单统计失败' });
+  }
+});
+
+// 用户查看单条工单详情（需登录 + 只能看自己的）
+app.get('/api/tickets/:id', verifyToken, (req, res) => {
+  try {
+    const db = getDb();
+    const ticket = db.prepare('SELECT * FROM tickets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    if (!ticket) {
+      return res.status(404).json({ error: '工单不存在' });
+    }
+    res.json({ ticket });
+  } catch (err) {
+    console.error('获取工单详情失败:', err);
+    res.status(500).json({ error: '获取工单详情失败' });
   }
 });
 
@@ -753,7 +823,13 @@ app.put('/api/admin/settings', verifyAdminToken, requireAdmin, (req, res) => {
 app.get('/api/admin/users', verifyAdminToken, requireAdmin, (req, res) => {
   try {
     const db = getDb();
-    const users = db.prepare('SELECT id, phone, nickname, avatar, vip, vip_expires_at, created_at FROM users ORDER BY created_at DESC').all();
+    const users = db.prepare(`
+      SELECT u.id, u.phone, u.nickname, u.avatar, u.vip, u.vip_expires_at, u.customer_level_id, u.created_at,
+             cl.name as customer_level_name
+      FROM users u
+      LEFT JOIN customer_levels cl ON u.customer_level_id = cl.id
+      ORDER BY u.created_at DESC
+    `).all();
     res.json({ users });
   } catch (err) {
     console.error('获取用户列表失败:', err);
@@ -784,6 +860,175 @@ app.put('/api/admin/users/:id/vip', verifyAdminToken, requireAdmin, (req, res) =
   }
 });
 
+// 更新用户信息（昵称、VIP、客户身份）
+app.put('/api/admin/users/:id', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const { nickname, vip, vip_expires_at, customer_level_id } = req.body;
+    const db = getDb();
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+
+    const updates = [];
+    const params = [];
+    if (nickname !== undefined) { updates.push('nickname = ?'); params.push(nickname); }
+    if (vip !== undefined) { updates.push('vip = ?'); params.push(vip ? 1 : 0); }
+    if (vip_expires_at !== undefined) { updates.push('vip_expires_at = ?'); params.push(vip_expires_at || ''); }
+    if (customer_level_id !== undefined) { updates.push('customer_level_id = ?'); params.push(customer_level_id || 0); }
+
+    if (updates.length > 0) {
+      params.push(req.params.id);
+      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    }
+
+    const updated = db.prepare(`
+      SELECT u.id, u.phone, u.nickname, u.vip, u.vip_expires_at, u.customer_level_id,
+             cl.name as customer_level_name
+      FROM users u LEFT JOIN customer_levels cl ON u.customer_level_id = cl.id
+      WHERE u.id = ?
+    `).get(req.params.id);
+
+    res.json({ message: '用户信息已更新', user: updated });
+  } catch (err) {
+    console.error('更新用户失败:', err);
+    res.status(500).json({ error: '更新用户失败' });
+  }
+});
+
+// ============================================================
+//  用户导入导出 /api/admin/users  (需 admin)
+// ============================================================
+
+// 导出用户为 CSV
+app.get('/api/admin/users/export', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const users = db.prepare(`
+      SELECT u.id, u.phone, u.nickname, u.vip, u.customer_level_id,
+             cl.name as customer_level_name, u.created_at
+      FROM users u
+      LEFT JOIN customer_levels cl ON u.customer_level_id = cl.id
+      ORDER BY u.id ASC
+    `).all();
+
+    // CSV 头部
+    const headers = ['ID','手机号','昵称','VIP','客户身份ID','客户身份','注册时间'];
+    const rows = users.map(u => [
+      u.id,
+      u.phone,
+      (u.nickname || '').replace(/,/g, '，'),
+      u.vip ? '是' : '否',
+      u.customer_level_id || 0,
+      u.customer_level_name || '',
+      u.created_at
+    ]);
+
+    let csv = '\uFEFF'; // BOM for Excel Chinese support
+    csv += headers.join(',') + '\n';
+    for (const row of rows) {
+      csv += row.join(',') + '\n';
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=users_' + new Date().toISOString().slice(0,10) + '.csv');
+    res.send(csv);
+  } catch (err) {
+    console.error('导出用户失败:', err);
+    res.status(500).json({ error: '导出用户失败' });
+  }
+});
+
+// 导入用户 CSV
+app.post('/api/admin/users/import', verifyAdminToken, requireAdmin, uploadCSV.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: '请上传 CSV 文件' });
+
+    const fs = require('fs');
+    const content = fs.readFileSync(req.file.path, 'utf8').replace(/^\uFEFF/, '');
+    const lines = content.split('\n').filter(l => l.trim());
+
+    if (lines.length < 2) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'CSV 文件为空或缺少数据行' });
+    }
+
+    // 解析头部
+    const headerLine = lines[0].toLowerCase().replace(/"/g, '');
+    const headers = headerLine.split(',').map(h => h.trim());
+
+    const phoneIdx = headers.findIndex(h => h.includes('手机') || h === 'phone');
+    const nickIdx = headers.findIndex(h => h.includes('昵称') || h === 'nickname');
+    const pwdIdx = headers.findIndex(h => h.includes('密码') || h === 'password');
+    const vipIdx = headers.findIndex(h => h.includes('vip') || h.includes('会员'));
+    const levelIdx = headers.findIndex(h => h.includes('客户身份ID') || h.includes('level_id') || h.includes('客户身份'));
+
+    if (phoneIdx === -1) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'CSV 文件中没有找到手机号列。请确保包含“手机号”或“phone”列' });
+    }
+
+    const db = getDb();
+    const levels = db.prepare('SELECT id, name FROM customer_levels').all();
+    const levelMap = {};
+    for (const l of levels) levelMap[l.name] = l.id;
+
+    let imported = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const phone = vals[phoneIdx];
+      if (!phone) { skipped++; continue; }
+
+      try {
+        const nickname = nickIdx >= 0 ? vals[nickIdx] || '' : '';
+        const vip = vipIdx >= 0 ? (vals[vipIdx] === '是' || vals[vipIdx] === '1' ? 1 : 0) : 0;
+
+        // 查找或推断客户身份ID
+        let levelId = 0;
+        if (levelIdx >= 0) {
+          const levelVal = vals[levelIdx];
+          if (/^\d+$/.test(levelVal)) {
+            levelId = parseInt(levelVal);
+          } else if (levelMap[levelVal]) {
+            levelId = levelMap[levelVal];
+          }
+        }
+
+        // 检查手机号是否已存在
+        const existing = db.prepare('SELECT id FROM users WHERE phone = ?').get(phone);
+        if (existing) {
+          // 更新
+          const updates = ['nickname = ?', 'vip = ?', 'customer_level_id = ?'];
+          const params = [nickname, vip, levelId, existing.id];
+          db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+        } else {
+          // 新增（默认密码为手机号后6位）
+          const password = pwdIdx >= 0 ? vals[pwdIdx] : phone.slice(-6);
+          const hashed = bcrypt.hashSync(password, 10);
+          db.prepare('INSERT INTO users (phone, password, nickname, vip, customer_level_id) VALUES (?, ?, ?, ?, ?)')
+            .run(phone, hashed, nickname, vip, levelId);
+        }
+        imported++;
+      } catch (rowErr) {
+        errors.push(`第 ${i + 1} 行: ${rowErr.message}`);
+      }
+    }
+
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      message: `导入完成：成功 ${imported} 条，跳过 ${skipped} 条${errors.length ? '，' + errors.length + ' 条错误' : ''}`,
+      imported,
+      skipped,
+      errors: errors.slice(0, 10)
+    });
+  } catch (err) {
+    console.error('导入用户失败:', err);
+    res.status(500).json({ error: '导入用户失败: ' + err.message });
+  }
+});
+
 // ============================================================
 //  管理统计 /api/admin/stats  (需 admin)
 // ============================================================
@@ -796,10 +1041,244 @@ app.get('/api/admin/stats', verifyAdminToken, requireAdmin, (req, res) => {
     const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
     const publishedTutorials = db.prepare("SELECT COUNT(*) as count FROM tutorials WHERE status = 'published'").get().count;
     const todayViews = db.prepare("SELECT COALESCE(SUM(views),0) as count FROM tutorials WHERE DATE(created_at) = DATE('now','localtime')").get().count;
-    res.json({ stats: { tutorials: tutorialCount, published: publishedTutorials, faqs: faqCount, users: userCount, todayViews } });
+    const ticketTotal = db.prepare("SELECT COUNT(*) as count FROM tickets").get().count;
+    const ticketPending = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'pending'").get().count;
+    const ticketProcessing = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'processing'").get().count;
+    const ticketResolved = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'resolved'").get().count;
+    res.json({ stats: { tutorials: tutorialCount, published: publishedTutorials, faqs: faqCount, users: userCount, todayViews, tickets: ticketTotal, ticketsPending: ticketPending, ticketsProcessing: ticketProcessing, ticketsResolved: ticketResolved } });
   } catch (err) {
     console.error('获取统计失败:', err);
     res.status(500).json({ error: '获取统计失败' });
+  }
+});
+
+// ============================================================
+//  AI 客服路由 /api/ai
+// ============================================================
+
+// 创建对话
+app.post('/api/ai/conversations', (req, res) => {
+  try {
+    const db = getDb();
+    // 可选认证：有 token 就解析，没有就当游客
+    let userId = null;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (token) {
+      try { userId = jwt.verify(token, JWT_SECRET).id; } catch {}
+    }
+    const guestName = req.body?.guest_name || '';
+    const result = db.prepare('INSERT INTO ai_conversations (user_id, guest_name) VALUES (?, ?)').run(userId, guestName);
+    const conv = db.prepare('SELECT * FROM ai_conversations WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json({ conversation: conv });
+  } catch (err) {
+    console.error('创建对话失败:', err);
+    res.status(500).json({ error: '创建对话失败' });
+  }
+});
+
+// 发送消息 & 获取 AI 回复
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    const { conversation_id, message, image_url } = req.body;
+    if (!conversation_id || !message) {
+      return res.status(400).json({ error: '缺少 conversation_id 或 message' });
+    }
+    const db = getDb();
+    const conv = db.prepare('SELECT * FROM ai_conversations WHERE id = ?').get(conversation_id);
+    if (!conv) return res.status(404).json({ error: '对话不存在' });
+
+    // 保存用户消息
+    db.prepare('INSERT INTO ai_messages (conversation_id, role, content, image_url) VALUES (?, ?, ?, ?)').run(conversation_id, 'user', message, image_url || '');
+
+    // 获取对话历史
+    const history = db.prepare('SELECT role, content FROM ai_messages WHERE conversation_id = ? ORDER BY id').all(conversation_id);
+
+    // 调用 AI
+    const reply = await aiChat(history.slice(0, -1), message, image_url);
+
+    // 保存 AI 回复
+    const replyResult = db.prepare('INSERT INTO ai_messages (conversation_id, role, content) VALUES (?, ?, ?)').run(conversation_id, 'assistant', reply);
+
+    // 更新对话时间
+    db.prepare('UPDATE ai_conversations SET updated_at = datetime(\'now\',\'localtime\') WHERE id = ?').run(conversation_id);
+
+    res.json({ reply, message_id: replyResult.lastInsertRowid });
+  } catch (err) {
+    console.error('AI 对话失败:', err);
+    res.status(500).json({ error: err.message || 'AI 回复失败' });
+  }
+});
+
+// 获取对话历史
+// 获取当前用户的对话列表
+app.get('/api/ai/conversations', (req, res) => {
+  try {
+    const db = getDb();
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    let userId = null;
+    if (token) {
+      try { userId = jwt.verify(token, JWT_SECRET).id; } catch {}
+    }
+    let conversations;
+    if (userId) {
+      conversations = db.prepare(`
+        SELECT c.*,
+          (SELECT COUNT(*) FROM ai_messages WHERE conversation_id = c.id) as message_count,
+          (SELECT content FROM ai_messages WHERE conversation_id = c.id AND role = 'user' ORDER BY id LIMIT 1) as first_message
+        FROM ai_conversations c WHERE c.user_id = ? ORDER BY c.updated_at DESC LIMIT 20
+      `).all(userId);
+    } else {
+      conversations = [];
+    }
+    res.json({ conversations });
+  } catch (err) {
+    res.status(500).json({ error: '获取对话列表失败' });
+  }
+});
+
+app.get('/api/ai/conversations/:id/messages', (req, res) => {
+  try {
+    const db = getDb();
+    const messages = db.prepare('SELECT * FROM ai_messages WHERE conversation_id = ? ORDER BY id').all(req.params.id);
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ error: '获取消息失败' });
+  }
+});
+
+// 消息评分
+app.post('/api/ai/messages/:id/rate', (req, res) => {
+  try {
+    const { rating } = req.body; // 1 = 👍, -1 = 👎
+    if (rating !== 1 && rating !== -1 && rating !== 0) {
+      return res.status(400).json({ error: 'rating 必须是 1, -1 或 0' });
+    }
+    const db = getDb();
+    db.prepare('UPDATE ai_messages SET rating = ? WHERE id = ?').run(rating, req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: '评分失败' });
+  }
+});
+
+// 转人工工单（从对话创建工单）
+app.post('/api/ai/conversations/:id/transfer', verifyToken, (req, res) => {
+  try {
+    const db = getDb();
+    const conv = db.prepare('SELECT * FROM ai_conversations WHERE id = ?').get(req.params.id);
+    if (!conv) return res.status(404).json({ error: '对话不存在' });
+
+    // 获取对话消息，拼接为工单描述
+    const messages = db.prepare('SELECT role, content FROM ai_messages WHERE conversation_id = ? ORDER BY id').all(req.params.id);
+    let description = '【AI 对话记录】\n\n';
+    for (const msg of messages) {
+      const prefix = msg.role === 'user' ? '用户' : 'AI助手';
+      description += `${prefix}: ${msg.content}\n\n`;
+    }
+
+    const { title, type, group_name } = req.body;
+    const userInfo = db.prepare('SELECT nickname, phone FROM users WHERE id = ?').get(req.user.id);
+
+    const result = db.prepare(`
+      INSERT INTO tickets (title, description, name, contact, type, group_name, user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      title || 'AI 无法解答的问题',
+      description,
+      userInfo?.nickname || '',
+      userInfo?.phone || '',
+      type || 'consult',
+      group_name || '',
+      req.user.id
+    );
+
+    // 标记对话已转人工
+    db.prepare('UPDATE ai_conversations SET status = \'transferred\' WHERE id = ?').run(req.params.id);
+
+    const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json({ message: '已转人工客服', ticket });
+  } catch (err) {
+    console.error('转人工失败:', err);
+    res.status(500).json({ error: '转人工失败' });
+  }
+});
+
+// 管理员查看 AI 对话列表
+app.get('/api/admin/ai/conversations', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const conversations = db.prepare(`
+      SELECT c.*, u.nickname, u.phone,
+        (SELECT COUNT(*) FROM ai_messages WHERE conversation_id = c.id) as message_count,
+        (SELECT content FROM ai_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) as last_message
+      FROM ai_conversations c
+      LEFT JOIN users u ON c.user_id = u.id
+      ORDER BY c.updated_at DESC
+      LIMIT 100
+    `).all();
+    res.json({ conversations });
+  } catch (err) {
+    res.status(500).json({ error: '获取对话列表失败' });
+  }
+});
+
+// AI 知识库管理
+app.get('/api/admin/ai/knowledge', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const items = db.prepare('SELECT * FROM ai_knowledge ORDER BY category, id DESC').all();
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ error: '获取知识库失败' });
+  }
+});
+
+app.post('/api/admin/ai/knowledge', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const { title, content, category, tags } = req.body;
+    if (!title || !content) return res.status(400).json({ error: '标题和内容必填' });
+    const db = getDb();
+    const result = db.prepare('INSERT INTO ai_knowledge (title, content, category, tags) VALUES (?, ?, ?, ?)').run(title, content, category || '', JSON.stringify(tags || []));
+    const item = db.prepare('SELECT * FROM ai_knowledge WHERE id = ?').get(result.lastInsertRowid);
+    try { rebuildRagIndex(); } catch {}
+    res.status(201).json({ item });
+  } catch (err) {
+    res.status(500).json({ error: '创建知识库条目失败' });
+  }
+});
+
+app.put('/api/admin/ai/knowledge/:id', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const { title, content, category, tags, status } = req.body;
+    const db = getDb();
+    db.prepare('UPDATE ai_knowledge SET title = COALESCE(?, title), content = COALESCE(?, content), category = COALESCE(?, category), tags = COALESCE(?, tags), status = COALESCE(?, status), updated_at = datetime(\'now\',\'localtime\') WHERE id = ?')
+      .run(title || null, content || null, category || null, tags ? JSON.stringify(tags) : null, status || null, req.params.id);
+    const item = db.prepare('SELECT * FROM ai_knowledge WHERE id = ?').get(req.params.id);
+    try { rebuildRagIndex(); } catch {}
+    res.json({ item });
+  } catch (err) {
+    res.status(500).json({ error: '更新知识库条目失败' });
+  }
+});
+
+app.delete('/api/admin/ai/knowledge/:id', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    db.prepare('DELETE FROM ai_knowledge WHERE id = ?').run(req.params.id);
+    try { rebuildRagIndex(); } catch {}
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: '删除知识库条目失败' });
+  }
+});
+
+// 手动重建 RAG 索引
+app.post('/api/admin/ai/rebuild-index', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const count = rebuildRagIndex();
+    res.json({ ok: true, count, message: `索引已重建，共 ${count} 条知识` });
+  } catch (err) {
+    res.status(500).json({ error: '重建索引失败: ' + err.message });
   }
 });
 
@@ -903,6 +1382,7 @@ app.post('/api/admin/knowledge', verifyAdminToken, requireAdmin, (req, res) => {
     const r = db.prepare('INSERT INTO knowledge_base (title, content, tags, category) VALUES (?,?,?,?)')
       .run(title, content||'', JSON.stringify(tags||[]), category||'');
     const item = db.prepare('SELECT * FROM knowledge_base WHERE id=?').get(r.lastInsertRowid);
+    try { rebuildRagIndex(); } catch {}
     res.status(201).json({ item });
   } catch (err) {
     console.error(err);
@@ -1039,6 +1519,81 @@ app.post('/api/upload/file', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '上传失败' });
+  }
+});
+
+// ============================================================
+//  客户身份分类管理 /api/admin/customer-levels  (需 admin)
+// ============================================================
+
+app.get('/api/admin/customer-levels', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const levels = db.prepare('SELECT * FROM customer_levels ORDER BY sort_order ASC').all();
+    res.json({ levels });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '获取客户分类失败' });
+  }
+});
+
+app.post('/api/admin/customer-levels', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const { name, description, sort_order } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: '分类名称不能为空' });
+    const db = getDb();
+    const r = db.prepare('INSERT INTO customer_levels (name, description, sort_order) VALUES (?, ?, ?)')
+      .run(name.trim(), (description || '').trim(), sort_order || 0);
+    const level = db.prepare('SELECT * FROM customer_levels WHERE id = ?').get(r.lastInsertRowid);
+    res.status(201).json({ level });
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: '该分类名称已存在' });
+    }
+    console.error(err);
+    res.status(500).json({ error: '创建客户分类失败' });
+  }
+});
+
+app.put('/api/admin/customer-levels/:id', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const { name, description, sort_order } = req.body;
+    const db = getDb();
+    const existing = db.prepare('SELECT id FROM customer_levels WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: '客户分类不存在' });
+    if (name !== undefined && (!name || !name.trim())) return res.status(400).json({ error: '分类名称不能为空' });
+    const updates = [];
+    const params = [];
+    if (name !== undefined) { updates.push('name = ?'); params.push(name.trim()); }
+    if (description !== undefined) { updates.push('description = ?'); params.push(description.trim()); }
+    if (sort_order !== undefined) { updates.push('sort_order = ?'); params.push(sort_order); }
+    if (updates.length > 0) {
+      params.push(req.params.id);
+      db.prepare(`UPDATE customer_levels SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    }
+    const level = db.prepare('SELECT * FROM customer_levels WHERE id = ?').get(req.params.id);
+    res.json({ level });
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: '该分类名称已存在' });
+    }
+    console.error(err);
+    res.status(500).json({ error: '更新客户分类失败' });
+  }
+});
+
+app.delete('/api/admin/customer-levels/:id', verifyAdminToken, requireAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const existing = db.prepare('SELECT id FROM customer_levels WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: '客户分类不存在' });
+    // 解除引用了该分类的用户
+    db.prepare('UPDATE users SET customer_level_id = 0 WHERE customer_level_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM customer_levels WHERE id = ?').run(req.params.id);
+    res.json({ message: '删除成功' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '删除客户分类失败' });
   }
 });
 

@@ -75,6 +75,7 @@ function initSchema() {
       group_name TEXT DEFAULT '',
       attachments TEXT DEFAULT '[]',
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending','processing','resolved')),
+      reply TEXT DEFAULT '',
       user_id INTEGER,
       created_at TEXT DEFAULT (datetime('now','localtime')),
       updated_at TEXT DEFAULT (datetime('now','localtime'))
@@ -104,6 +105,14 @@ function initSchema() {
       value TEXT DEFAULT '',
       updated_at TEXT DEFAULT (datetime('now','localtime'))
     );
+
+    CREATE TABLE IF NOT EXISTS customer_levels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
   `);
 
   // 迁移：兼容旧数据库添加 vip_only 字段
@@ -111,6 +120,91 @@ function initSchema() {
     db.exec("ALTER TABLE tutorials ADD COLUMN vip_only INTEGER DEFAULT 0");
   } catch(e) {
     // 字段已存在则忽略
+  }
+
+  // 迁移：给 users 表添加 customer_level_id 字段
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN customer_level_id INTEGER DEFAULT 0 REFERENCES customer_levels(id)");
+  } catch(e) {
+    // 字段已存在则忽略
+  }
+
+  // 迁移：给 users 表添加 customer_level_id 字段
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN customer_level_id INTEGER DEFAULT 0");
+  } catch(e) {
+    // 字段已存在则忽略
+  }
+
+  // 给 users 表添加 customer_level_id 字段索引
+  try {
+    db.exec("CREATE INDEX IF NOT EXISTS idx_users_customer_level ON users(customer_level_id)");
+  } catch(e) {
+    // 索引已存在则忽略
+  }
+
+  // 迁移：给 tickets 表添加 reply 字段（管理员回复）
+  try {
+    db.exec("ALTER TABLE tickets ADD COLUMN reply TEXT DEFAULT ''");
+  } catch(e) {
+    // 字段已存在则忽略
+  }
+
+  // AI 客服对话表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      guest_name TEXT DEFAULT '',
+      status TEXT DEFAULT 'active' CHECK(status IN ('active','transferred','closed')),
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('user','assistant','system')),
+      content TEXT NOT NULL DEFAULT '',
+      image_url TEXT DEFAULT '',
+      rating INTEGER DEFAULT 0 CHECK(rating IN (-1, 0, 1)),
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id)
+    )
+  `);
+
+  // AI 知识库表（为 RAG 预留）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_knowledge (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      category TEXT DEFAULT '',
+      tags TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'active' CHECK(status IN ('active','hidden')),
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // 客户身份分类种子数据（独立初始化，不受 seedData 跳过影响）
+  const levelCount = db.prepare('SELECT COUNT(*) as count FROM customer_levels').get();
+  if (levelCount.count === 0) {
+    const insertLevel = db.prepare('INSERT INTO customer_levels (name, description, sort_order) VALUES (?, ?, ?)');
+    const levels = [
+      { name: '创业版', description: '初创阶段客户', sort_order: 1 },
+      { name: '旗舰版', description: '企业旗舰客户', sort_order: 2 },
+      { name: '白银代理', description: '白银级别代理商', sort_order: 3 },
+      { name: '黄金代理', description: '黄金级别代理商', sort_order: 4 },
+      { name: '钻石代理', description: '钻石级别代理商', sort_order: 5 },
+      { name: '战略大客户', description: '战略合作大客户', sort_order: 6 },
+    ];
+    for (const l of levels) {
+      insertLevel.run(l.name, l.description, l.sort_order);
+    }
+    console.log(`🌱 客户分类种子数据: ${levels.length} 个`);
   }
 
   console.log('✅ 数据库表结构创建完成');
@@ -999,6 +1093,8 @@ A: 可以，但每个手机务必使用独立的 4G/5G 网络，不要共用 WiF
   for (const f of faqs) {
     insertFaq.run(f.question, f.answer, f.category, f.sort_order, f.pinned, 'active');
   }
+
+  // 客户分类种子数据已迁移到 initSchema 中初始化
 
   // ===== 分类数据 =====
   const insertCat = db.prepare(`INSERT INTO categories (name, icon, sort_order) VALUES (?, ?, ?)`);

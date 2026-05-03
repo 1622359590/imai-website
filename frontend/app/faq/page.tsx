@@ -87,7 +87,7 @@ export default function FAQPage() {
             <div className="space-y-3">
               {[1,2,3,4,5].map((i) => (
                 <div key={i} className="card animate-pulse">
-                  <div className="h-5 w-3/4 rounded bg-[#1e293b]" />
+                  <div className="h-5 w-3/4 rounded bg-[#e2e8f0]" />
                 </div>
               ))}
             </div>

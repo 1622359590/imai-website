@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { adminApi } from '@/lib/api';
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({ tutorials: 0, published: 0, faqs: 0, users: 0, todayViews: 0 });
+  const [stats, setStats] = useState({ tutorials: 0, published: 0, faqs: 0, users: 0, todayViews: 0, tickets: 0, ticketsPending: 0, ticketsProcessing: 0, ticketsResolved: 0 });
 
   useEffect(() => {
     adminApi.getStats().then(res => {
@@ -32,6 +32,34 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* 工单概览 */}
+      {stats.tickets > 0 && (
+        <div className="card">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[#1e293b]">工单概览</h2>
+            <Link href="/admin/tickets" className="text-xs text-[#8b5cf6] hover:underline">查看全部</Link>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="rounded-lg border border-[#e2e8f0] p-3 text-center">
+              <p className="text-2xl font-bold text-[#1e293b]">{stats.tickets}</p>
+              <p className="text-xs text-[#94a3b8] mt-1">全部工单</p>
+            </div>
+            <div className="rounded-lg border border-[#fef3c7] bg-[#fef3c7]/30 p-3 text-center">
+              <p className="text-2xl font-bold text-[#d97706]">{stats.ticketsPending}</p>
+              <p className="text-xs text-[#d97706]/70 mt-1">待处理</p>
+            </div>
+            <div className="rounded-lg border border-[#dbeafe] bg-[#dbeafe]/30 p-3 text-center">
+              <p className="text-2xl font-bold text-[#2563eb]">{stats.ticketsProcessing}</p>
+              <p className="text-xs text-[#2563eb]/70 mt-1">处理中</p>
+            </div>
+            <div className="rounded-lg border border-[#ecfdf5] bg-[#ecfdf5]/30 p-3 text-center">
+              <p className="text-2xl font-bold text-[#059669]">{stats.ticketsResolved}</p>
+              <p className="text-xs text-[#059669]/70 mt-1">已解决</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 快速操作 */}
       <div className="card">
         <h2 className="mb-4 text-base font-semibold text-[#1e293b]">快速操作</h2>
@@ -44,6 +72,9 @@ export default function AdminDashboard() {
           </Link>
           <Link href="/admin/users" className="btn btn-secondary btn-sm">
             + 创建用户
+          </Link>
+          <Link href="/admin/tickets" className="btn btn-secondary btn-sm">
+            + 处理工单
           </Link>
         </div>
       </div>

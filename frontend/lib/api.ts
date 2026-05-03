@@ -213,7 +213,8 @@ export const adminApi = {
     }),
 
   // 工单管理
-  getTickets: () => fetchAdminAPI('/admin/tickets'),
+  getTickets: (status?: string) => fetchAdminAPI(`/admin/tickets${status ? `?status=${status}` : ''}`),
+  getTicketStats: () => fetchAdminAPI('/admin/tickets/stats'),
   updateTicket: (id: number | string, data: { status?: string; reply?: string }) =>
     fetchAdminAPI(`/admin/tickets/${id}`, {
       method: 'PUT',
@@ -254,6 +255,62 @@ export const adminApi = {
     }),
   deleteAdmin: (id: number | string) =>
     fetchAdminAPI(`/admin/admins/${id}`, { method: 'DELETE' }),
+
+  // 客户身份分类管理
+  getCustomerLevels: () => fetchAdminAPI('/admin/customer-levels'),
+  createCustomerLevel: (data: { name: string; description?: string; sort_order?: number }) =>
+    fetchAdminAPI('/admin/customer-levels', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateCustomerLevel: (id: number | string, data: { name?: string; description?: string; sort_order?: number }) =>
+    fetchAdminAPI(`/admin/customer-levels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteCustomerLevel: (id: number | string) =>
+    fetchAdminAPI(`/admin/customer-levels/${id}`, { method: 'DELETE' }),
+
+  // 更新用户信息
+  updateUser: (userId: number, data: { nickname?: string; vip?: number; vip_expires_at?: string; customer_level_id?: number }) =>
+    fetchAdminAPI(`/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // 导出用户 CSV
+  exportUsers: async () => {
+    const token = getAdminToken();
+    const res = await fetch('/api/admin/users/export', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error('导出失败');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'users_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
+
+  // 导入用户 CSV
+  importUsers: async (file: File) => {
+    const token = getAdminToken();
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/admin/users/import', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    // FormData 不要手动设 Content-Type，让浏览器自动加 boundary
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '导入失败');
+    return data;
+  },
 };
 
 // ========== 工单 ==========
@@ -272,6 +329,52 @@ export const ticketApi = {
       body: JSON.stringify(data),
     }),
   getMyTickets: () => fetchAPI("/user/tickets"),
+  getTicket: (id: number | string) => fetchAPI(`/tickets/${id}`),
+};
+
+// ========== AI 客服 ==========
+export const aiApi = {
+  getConversations: () => fetchAPI('/ai/conversations'),
+  createConversation: (guestName?: string) =>
+    fetchAPI('/ai/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ guest_name: guestName || '' }),
+    }),
+  sendMessage: (conversationId: number, message: string, imageUrl?: string) =>
+    fetchAPI('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ conversation_id: conversationId, message, image_url: imageUrl || '' }),
+    }),
+  getMessages: (conversationId: number) =>
+    fetchAPI(`/ai/conversations/${conversationId}/messages`),
+  rateMessage: (messageId: number, rating: number) =>
+    fetchAPI(`/ai/messages/${messageId}/rate`, {
+      method: 'POST',
+      body: JSON.stringify({ rating }),
+    }),
+  transferToHuman: (conversationId: number, data?: { title?: string; type?: string; group_name?: string }) =>
+    fetchAPI(`/ai/conversations/${conversationId}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    }),
+};
+
+// ========== AI 管理 ==========
+export const aiAdminApi = {
+  getConversations: () => fetchAdminAPI('/admin/ai/conversations'),
+  getKnowledge: () => fetchAdminAPI('/admin/ai/knowledge'),
+  createKnowledge: (data: { title: string; content: string; category?: string; tags?: string[] }) =>
+    fetchAdminAPI('/admin/ai/knowledge', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateKnowledge: (id: number, data: { title?: string; content?: string; category?: string; status?: string }) =>
+    fetchAdminAPI(`/admin/ai/knowledge/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteKnowledge: (id: number) =>
+    fetchAdminAPI(`/admin/ai/knowledge/${id}`, { method: 'DELETE' }),
 };
 
 // ========== 分类 ==========

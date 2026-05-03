@@ -4,10 +4,21 @@ node_modules/
 *.log
 .DS_Store
 .env
-uploads/*
-!uploads/.gitkeep
+.env.local
 
-# SQLite WAL files
-*.db-shm
-*.db-wal
+# 上传文件
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# SQLite 数据库（包含 API Key、知识库等敏感数据）
 backend/data.db
+backend/data.db-shm
+backend/data.db-wal
+
+# 百问百答等私有文档
+百问百答.docx
+*.docx
+
+# IDE
+.vscode/
+.idea/

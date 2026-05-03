@@ -90,9 +90,9 @@ function TutorialsContent() {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="card animate-pulse">
-                  <div className="h-4 w-16 rounded bg-[#1e293b]" />
-                  <div className="mt-3 h-5 w-3/4 rounded bg-[#1e293b]" />
-                  <div className="mt-2 h-4 w-2/3 rounded bg-[#1e293b]" />
+                  <div className="h-4 w-16 rounded bg-[#e2e8f0]" />
+                  <div className="mt-3 h-5 w-3/4 rounded bg-[#e2e8f0]" />
+                  <div className="mt-2 h-4 w-2/3 rounded bg-[#e2e8f0]" />
                 </div>
               ))}
             </div>
@@ -151,7 +151,7 @@ export default function TutorialsPage() {
         <main className="min-h-screen">
           <div className="mx-auto max-w-7xl px-4 py-12">
             <div className="animate-pulse space-y-4">
-              {[1,2,3,4,5,6].map(i => <div key={i} className="h-8 rounded bg-[#1e293b]" />)}
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-8 rounded bg-[#e2e8f0]" />)}
             </div>
           </div>
         </main>
