@@ -140,14 +140,38 @@ function initSchema() {
     db.exec("ALTER TABLE tickets ADD COLUMN processed_by INTEGER");
   } catch(e) {}
 
-  // 迁移：给 users 表添加 customer_level_id 字段
+  // 迁移：工单回复已读标记
   try {
-    db.exec("ALTER TABLE users ADD COLUMN customer_level_id INTEGER DEFAULT 0");
-  } catch(e) {
-    // 字段已存在则忽略
-  }
+    db.exec("ALTER TABLE tickets ADD COLUMN reply_read INTEGER DEFAULT 1");
+  } catch(e) {}
 
-  // 给 users 表添加 customer_level_id 字段索引
+  // 迁移：用户公司信息
+  try { db.exec("ALTER TABLE users ADD COLUMN company TEXT DEFAULT ''"); } catch(e) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN company_role TEXT DEFAULT ''"); } catch(e) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN industry TEXT DEFAULT ''"); } catch(e) {}
+
+  // 迁移：对话摘要记忆
+  try { db.exec("ALTER TABLE ai_conversations ADD COLUMN summary TEXT DEFAULT ''"); } catch(e) {}
+
+  // 迁移：知识库热度权重
+  try { db.exec("ALTER TABLE ai_knowledge ADD COLUMN hit_count INTEGER DEFAULT 0"); } catch(e) {}
+
+  // 迁移：用户动态画像记忆表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_memory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      category TEXT DEFAULT 'general' CHECK(category IN ('general','interest','behavior','context','preference')),
+      content TEXT NOT NULL,
+      confidence REAL DEFAULT 1.0,
+      source_conversation_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      UNIQUE(user_id, content)
+    )
+  `);
+
+  // 迁移：给 users 表添加 customer_level_id 字段索引
   try {
     db.exec("CREATE INDEX IF NOT EXISTS idx_users_customer_level ON users(customer_level_id)");
   } catch(e) {
@@ -165,6 +189,10 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_knowledge_status ON knowledge_base(status);
     CREATE INDEX IF NOT EXISTS idx_ai_knowledge_status ON ai_knowledge(status);
     CREATE INDEX IF NOT EXISTS idx_faqs_status ON faqs(status);
+    CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority);
+    CREATE INDEX IF NOT EXISTS idx_tickets_processed_by ON tickets(processed_by);
+    CREATE INDEX IF NOT EXISTS idx_ai_messages_rating ON ai_messages(rating);
+    CREATE INDEX IF NOT EXISTS idx_ai_conversations_status ON ai_conversations(status);
   `);
 
   // 迁移：给 tickets 表添加 reply 字段（管理员回复）

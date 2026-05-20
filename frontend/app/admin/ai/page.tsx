@@ -344,6 +344,7 @@ export default function KnowledgePage() {
                 <th className="w-12">ID</th>
                 <th>标题</th>
                 <th>分类</th>
+                <th>命中</th>
                 <th>内容预览</th>
                 <th>状态</th>
                 <th>操作</th>
@@ -357,6 +358,9 @@ export default function KnowledgePage() {
                   <td>
                     <span className="tag">{item.category || '未分类'}</span>
                     {item.category === '自动学习' && <span className="ml-1 text-[10px]">🧠</span>}
+                  </td>
+                  <td className="text-xs">
+                    <span className={item.hit_count > 0 ? 'text-[#8b5cf6] font-semibold' : 'text-[#cbd5e1]'}>{item.hit_count || 0}</span>
                   </td>
                   <td className="text-xs text-[#64748b] max-w-[300px] truncate">{item.content.slice(0, 80)}</td>
                   <td>

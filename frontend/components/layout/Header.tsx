@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import VIPBadge from '@/components/ui/VIPBadge';
-import { authApi } from '@/lib/api';
+import { authApi, ticketApi } from '@/lib/api';
 
 interface User {
   id: number;
@@ -19,6 +19,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [unreadTickets, setUnreadTickets] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -28,11 +29,25 @@ export default function Header() {
     if (token) {
       authApi.getMe().then((res) => {
         setUser(res.user);
+        // 检查未读工单回复
+        ticketApi.getUnreadCount().then(r => setUnreadTickets(r.count)).catch(() => {});
       }).catch(() => {
         localStorage.removeItem('imai-token');
       });
     }
   }, []);
+
+  // 定期检查未读工单回复（每 30 秒）
+  useEffect(() => {
+    if (!user) return;
+    const check = () => {
+      ticketApi.getUnreadCount().then(r => setUnreadTickets(r.count)).catch(() => {});
+    };
+    const timer = setInterval(check, 30000);
+    // 路由变化时也检查
+    check();
+    return () => clearInterval(timer);
+  }, [user, pathname]);
 
   // 监听滚动，添加毛玻璃效果
   useEffect(() => {
@@ -65,10 +80,18 @@ export default function Header() {
   };
 
   const navLinks = [
-    { href: '/', label: 'AI 助手', icon: '🤖' },
-    { href: '/tutorials', label: '教程', icon: '📖' },
-    { href: '/faq', label: 'FAQ', icon: '❓' },
-    { href: '/ticket', label: '工单', icon: '🎫' },
+    { href: '/', label: 'AI 助手', icon: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/><line x1="9" y1="21" x2="15" y2="21"/><circle cx="12" cy="9" r="2" fill="currentColor" stroke="none"/></svg>
+    )},
+    { href: '/tutorials', label: '教程', icon: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+    )},
+    { href: '/faq', label: 'FAQ', icon: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    )},
+    { href: '/ticket', label: '工单', icon: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    )},
   ];
 
   return (
@@ -82,11 +105,15 @@ export default function Header() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2.5">
-          <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#8b5cf6] to-[#a855f7] text-white shadow-md shadow-[#8b5cf6]/25 transition-transform group-hover:scale-105">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/>
-              <line x1="9" y1="21" x2="15" y2="21"/>
-              <line x1="10" y1="24" x2="14" y2="24"/>
+          <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] text-white shadow-md shadow-[#8b5cf6]/25 transition-transform group-hover:scale-105 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.15),transparent_60%)]" />
+            <svg className="w-4 h-4 relative z-10" viewBox="0 0 32 32" fill="none">
+              <path d="M8 10a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-4l-3 3-3-3h-2a2 2 0 01-2-2V10z" fill="rgba(255,255,255,0.9)"/>
+              <circle cx="12.5" cy="14" r="1" fill="#8b5cf6"/>
+              <circle cx="19.5" cy="14" r="1" fill="#8b5cf6"/>
+              <circle cx="16" cy="14" r="1" fill="#6d28d9"/>
+              <line x1="13.5" y1="14" x2="15" y2="14" stroke="#8b5cf6" strokeWidth="0.7"/>
+              <line x1="17" y1="14" x2="18.5" y2="14" stroke="#8b5cf6" strokeWidth="0.7"/>
             </svg>
             <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#10b981]" />
           </div>
@@ -102,6 +129,7 @@ export default function Header() {
         <nav className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => {
             const active = isActive(link.href);
+            const hasUnread = link.href === '/ticket' && unreadTickets > 0;
             return (
               <Link
                 key={link.href}
@@ -112,8 +140,13 @@ export default function Header() {
                     : 'text-[#64748b] hover:text-[#8b5cf6] hover:bg-[#f8fafc]'
                 }`}
               >
-                <span className="text-xs">{link.icon}</span>
+                <span className="flex items-center justify-center text-[#94a3b8]">{link.icon}</span>
                 {link.label}
+                {hasUnread && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ef4444] px-1 text-[10px] font-bold text-white shadow-sm">
+                    {unreadTickets > 9 ? '9+' : unreadTickets}
+                  </span>
+                )}
                 {active && (
                   <span className="absolute -bottom-[13px] left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-[#8b5cf6]" />
                 )}
@@ -211,20 +244,26 @@ export default function Header() {
           <nav className="space-y-1">
             {navLinks.map((link) => {
               const active = isActive(link.href);
+              const hasUnread = link.href === '/ticket' && unreadTickets > 0;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                  className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                     active
                       ? 'text-[#8b5cf6] bg-[#8b5cf6]/8'
                       : 'text-[#64748b] hover:text-[#8b5cf6] hover:bg-[#f8fafc]'
                   }`}
                 >
-                  <span className="text-base">{link.icon}</span>
+                  <span className="flex items-center justify-center text-[#94a3b8]">{link.icon}</span>
                   {link.label}
-                  {active && (
+                  {hasUnread && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ef4444] px-1.5 text-[11px] font-bold text-white">
+                      {unreadTickets > 9 ? '9+' : unreadTickets}
+                    </span>
+                  )}
+                  {active && !hasUnread && (
                     <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#8b5cf6]" />
                   )}
                 </Link>

@@ -307,8 +307,17 @@ export default function SupportPage() {
           {/* 页面标题 */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#a855f7] text-white shadow-lg shadow-[#8b5cf6]/30">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/><line x1="9" y1="21" x2="15" y2="21"/><line x1="10" y1="24" x2="14" y2="24"/></svg>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] text-white shadow-lg shadow-[#8b5cf6]/30 relative overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.15),transparent_60%)]" />
+                <svg className="w-5 h-5 relative z-10" viewBox="0 0 32 32" fill="none">
+                  <path d="M8 10a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2h-4l-3 3-3-3h-2a2 2 0 01-2-2V10z" fill="rgba(255,255,255,0.9)"/>
+                  <circle cx="12.5" cy="14" r="1.2" fill="#8b5cf6"/>
+                  <circle cx="19.5" cy="14" r="1.2" fill="#8b5cf6"/>
+                  <circle cx="16" cy="14" r="1.2" fill="#6d28d9"/>
+                  <line x1="13.7" y1="14" x2="14.8" y2="14" stroke="#8b5cf6" strokeWidth="0.8"/>
+                  <line x1="17.2" y1="14" x2="18.3" y2="14" stroke="#8b5cf6" strokeWidth="0.8"/>
+                  <path d="M13 17.5h6" stroke="#8b5cf6" strokeWidth="0.8" strokeLinecap="round"/>
+                </svg>
               </div>
               <div>
                 <h1 className="text-xl font-bold text-[#1e293b]">imai小助手</h1>

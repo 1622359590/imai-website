@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { adminApi } from '@/lib/api';
+import { adminApi, fetchAdminAPI } from '@/lib/api';
 import { showToast } from '@/components/ui/Toast';
 import VIPBadge from '@/components/ui/VIPBadge';
 import Pagination from '@/components/ui/Pagination';
@@ -59,7 +59,15 @@ export default function AdminUsersPage() {
   const [editLevel, setEditLevel] = useState(0);
   const [editVIP, setEditVIP] = useState(false);
   const [editVIPDays, setEditVIPDays] = useState(30);
+  const [editCompany, setEditCompany] = useState('');
+  const [editCompanyRole, setEditCompanyRole] = useState('');
+  const [editIndustry, setEditIndustry] = useState('');
   const [savingDetail, setSavingDetail] = useState(false);
+
+  // 用户画像记忆
+  const [userMemories, setUserMemories] = useState<any[]>([]);
+  const [newMemoryContent, setNewMemoryContent] = useState('');
+  const [newMemoryCategory, setNewMemoryCategory] = useState('general');
 
   // 导入
   const [importing, setImporting] = useState(false);
@@ -117,6 +125,11 @@ export default function AdminUsersPage() {
     setEditLevel(u.customer_level_id || 0);
     setEditVIP(u.vip === 1 && !isExpired(u.vip_expires_at));
     setEditVIPDays(30);
+    setEditCompany(u.company || '');
+    setEditCompanyRole(u.company_role || '');
+    setEditIndustry(u.industry || '');
+    // 加载用户画像
+    fetchAdminAPI(`/users/${u.id}/memory`).then(r => setUserMemories(r.memories || [])).catch(() => setUserMemories([]));
   };
 
   // === 保存详情 ===
@@ -124,7 +137,7 @@ export default function AdminUsersPage() {
     if (!detailUser) return;
     setSavingDetail(true);
     try {
-      const data: any = { nickname: editNick, customer_level_id: editLevel };
+      const data: any = { nickname: editNick, customer_level_id: editLevel, company: editCompany, company_role: editCompanyRole, industry: editIndustry };
       if (editVIP) {
         const expires = new Date();
         expires.setDate(expires.getDate() + editVIPDays);
@@ -275,6 +288,7 @@ export default function AdminUsersPage() {
                 <th className="w-12">ID</th>
                 <th>手机号</th>
                 <th>昵称</th>
+                <th>公司</th>
                 <th>VIP</th>
                 <th>到期</th>
                 <th>客户身份</th>
@@ -290,6 +304,7 @@ export default function AdminUsersPage() {
                   <td className="text-xs font-mono text-[#94a3b8]">{u.id}</td>
                   <td className="font-medium text-[#1e293b]">{u.phone}</td>
                   <td className="text-[#64748b]">{u.nickname || '-'}</td>
+                  <td className="text-[#64748b] text-xs">{u.company || '-'}</td>
                   <td>
                     {u.vip === 1 && !expired ? (
                       <VIPBadge />
@@ -374,6 +389,31 @@ export default function AdminUsersPage() {
               <label className="mb-1 block text-xs font-medium text-[#64748b]">昵称</label>
               <input value={editNick} onChange={e => setEditNick(e.target.value)} className="input text-sm" placeholder="未设置" />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#64748b]">公司</label>
+                <input value={editCompany} onChange={e => setEditCompany(e.target.value)} className="input text-sm" placeholder="未填写" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#64748b]">职位</label>
+                <input value={editCompanyRole} onChange={e => setEditCompanyRole(e.target.value)} className="input text-sm" placeholder="未填写" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#64748b]">行业</label>
+              <select value={editIndustry} onChange={e => setEditIndustry(e.target.value)} className="select text-sm">
+                <option value="">未设置</option>
+                <option value="餐饮">餐饮</option>
+                <option value="零售">零售</option>
+                <option value="电商">电商</option>
+                <option value="教育">教育</option>
+                <option value="美业">美业</option>
+                <option value="房产">房产</option>
+                <option value="汽车">汽车</option>
+                <option value="本地生活">本地生活</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-[#64748b]">客户身份</label>
               <select value={editLevel} onChange={e => setEditLevel(Number(e.target.value))} className="select text-sm">
@@ -415,7 +455,57 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
-          <div className="flex gap-2 pt-5">
+          {/* 用户画像记忆 */}
+          <div className="border-t border-[#e2e8f0] pt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-xs font-semibold text-[#64748b]">🧠 画像记忆 <span className="font-normal text-[#94a3b8]">（AI 自动学习）</span></label>
+              <span className="text-[10px] text-[#94a3b8]">{userMemories.length} 条</span>
+            </div>
+            {userMemories.length === 0 ? (
+              <p className="text-xs text-[#94a3b8]">暂无画像记忆，用户对话后会自动提取</p>
+            ) : (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {userMemories.map((m: any) => (
+                  <div key={m.id} className="flex items-center gap-2 rounded-lg border border-[#e2e8f0] px-2.5 py-1.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      m.category === 'interest' ? 'bg-[#f5f3ff] text-[#8b5cf6]' :
+                      m.category === 'context' ? 'bg-[#ecfdf5] text-[#059669]' :
+                      m.category === 'behavior' ? 'bg-[#fff7ed] text-[#d97706]' :
+                      m.category === 'preference' ? 'bg-[#f0f9ff] text-[#2563eb]' :
+                      'bg-[#f1f5f9] text-[#64748b]'
+                    }`}>
+                      {{ interest: '兴趣', behavior: '行为', context: '背景', preference: '偏好', general: '其他' }[m.category as string] || '其他'}
+                    </span>
+                    <span className="flex-1 text-xs text-[#1e293b]">{m.content}</span>
+                    <button onClick={async () => {
+                      await fetchAdminAPI(`/users/memory/${m.id}`, { method: 'DELETE' });
+                      setUserMemories(prev => prev.filter(x => x.id !== m.id));
+                    }} className="text-[#94a3b8] hover:text-[#ef4444] transition-colors">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* 手动添加 */}
+            <div className="mt-2 flex gap-1.5">
+              <select value={newMemoryCategory} onChange={e => setNewMemoryCategory(e.target.value)} className="select text-xs py-1 px-2 w-20">
+                <option value="general">其他</option>
+                <option value="interest">兴趣</option>
+                <option value="context">背景</option>
+                <option value="behavior">行为</option>
+                <option value="preference">偏好</option>
+              </select>
+              <input value={newMemoryContent} onChange={e => setNewMemoryContent(e.target.value)} placeholder="手动添加画像..."
+                className="input text-xs py-1 flex-1" onKeyDown={e => { if (e.key === 'Enter' && newMemoryContent.trim()) {
+                  fetchAdminAPI(`/users/${detailUser!.id}/memory`, { method: 'POST', body: JSON.stringify({ category: newMemoryCategory, content: newMemoryContent.trim() }) });
+                  setUserMemories(prev => [{ id: Date.now(), category: newMemoryCategory, content: newMemoryContent.trim(), confidence: 1.0 }, ...prev]);
+                  setNewMemoryContent('');
+                }}} />
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-4">
             <button onClick={() => setDetailUser(null)} className="flex-1 btn btn-secondary btn-sm justify-center">取消</button>
             <button onClick={handleSaveDetail} disabled={savingDetail} className="flex-1 btn btn-primary btn-sm justify-center">
               {savingDetail ? '保存中...' : '保存修改'}

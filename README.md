@@ -33,6 +33,42 @@ So I built this system. The core idea: **AI-first support with human escalation.
 
 ## 📋 更新日志
 
+### 2026-05-20
+
+#### 🏗️ 后端架构重构
+- `server.js` 从 2000+ 行拆分为独立路由模块：`routes/admin.js`、`routes/ai.js`、`routes/auth.js`、`routes/public.js`、`routes/tickets.js`、`routes/user-tickets.js`
+- 职责清晰，便于维护和扩展
+- 新增 `scripts/data-tool.js` 数据导出/导入工具和 `scripts/import_knowledge.js` 知识库批量导入脚本
+
+#### 🧠 AI 三层记忆系统
+- **用户画像记忆**：注册时采集公司、行业、职位，AI 回复时自动参考用户背景
+- **对话历史记忆**：跨会话记忆，AI 能记住用户之前聊过的内容
+- **全局知识库检索**：RAG 检索不变，作为第三层知识支撑
+- 新增 `user_memory` 表，支持动态画像记忆（兴趣、行为、偏好等分类）
+- 对话摘要记忆：`ai_conversations` 新增 `summary` 字段
+
+#### 👤 用户画像
+- 注册页面改为分步填写：第一步基本信息 → 第二步公司信息（公司名、职位、行业）
+- 数据库 `users` 表新增 `company`、`company_role`、`industry` 字段
+- 管理后台用户列表展示公司信息
+
+#### 🎫 工单已读标记
+- `tickets` 表新增 `reply_read` 字段，管理员回复后用户可看到未读提示
+
+#### 📈 知识库热度权重
+- `ai_knowledge` 表新增 `hit_count` 字段，记录知识被检索命中的次数
+- 可用于后续排序优化：高频命中的知识优先展示
+
+#### 🎨 前端优化
+- 首页改版：对话体验优化，支持 URL 自动识别为可点击链接
+- 新增 Loading 骨架屏：首页、FAQ、工单、教程等页面统一 loading 状态
+- 注册页面 UI 重构：分步引导 + 公司信息采集
+- 管理后台仪表盘优化
+
+#### ⚡ 性能优化
+- 数据库新增多个索引：工单优先级、处理人、AI 消息评分、对话状态
+- API 调用优化，减少冗余请求
+
 ### 2026-05-06
 
 #### 🧠 AI 自学习系统
@@ -164,14 +200,21 @@ So I built this system. The core idea: **AI-first support with human escalation.
 保存用户消息 (ai_messages, role='user')
     │
     ▼
-RAG 检索相关知识
-    ├── BM25 分词检索 (bigram/trigram + 同义词)
-    ├── 向量检索 (sqlite-vec, 特征哈希 128 维)
-    └── 加权合并 → Top 5
+三层记忆构建
+    ├── 记忆 1：用户画像 (user_memory + users 表)
+    │   └── 公司/行业/职位 + 动态画像(兴趣/行为/偏好)
+    ├── 记忆 2：对话历史记忆
+    │   └── 跨会话摘要 (ai_conversations.summary)
+    └── 记忆 3：RAG 知识库检索
+        ├── BM25 分词检索 (bigram/trigram + 同义词)
+        ├── 向量检索 (sqlite-vec, 特征哈希 128 维)
+        └── 加权合并 → Top 5
     │
     ▼
 构建 Prompt
     ├── System Prompt (AI 人设 + 回答规则)
+    ├── 用户画像上下文
+    ├── 对话记忆上下文
     ├── 知识库上下文 (检索到的 5 条知识)
     └── 对话历史 (最近 10 轮)
     │
@@ -186,6 +229,7 @@ RAG 检索相关知识
     │
     ▼
 用户评分 (👍/👎 → ai_messages.rating)
+    自动提取画像记忆 (user_memory)
 ```
 
 **为什么用打字机效果?**
@@ -205,6 +249,8 @@ RAG 检索相关知识
 - ⏰ 自动关闭(30 分钟无新消息自动结束)
 - ⚡ 快捷问题引导
 - 🧠 AI 自学习(好评问答自动沉淀 + 智能去重 + 定时清理)
+- 🧑 三层记忆(用户画像 + 对话记忆 + 知识库检索)
+- 🏢 用户画像(注册时采集公司/行业/职位,AI 自动参考)
 
 ---
 
@@ -482,6 +528,9 @@ docker compose up --build
 | phone | TEXT | 手机号(唯一) |
 | password | TEXT | bcrypt 加密密码 |
 | nickname | TEXT | 昵称 |
+| company | TEXT | 公司名称 |
+| company_role | TEXT | 职位 |
+| industry | TEXT | 行业 |
 | vip | INTEGER | VIP 状态 (0/1) |
 | vip_expires_at | TEXT | VIP 到期时间 |
 | customer_level_id | INTEGER | 客户分类 FK |
@@ -510,6 +559,7 @@ docker compose up --build
 | attachments | TEXT | 附件 JSON |
 | status | TEXT | 状态 (pending/processing/resolved) |
 | reply | TEXT | 管理员回复 |
+| reply_read | INTEGER | 回复已读 (0/1) |
 | processed_by | INTEGER | 处理人 FK → admins |
 | user_id | INTEGER | 提交人 FK → users |
 
@@ -521,6 +571,7 @@ docker compose up --build
 | user_id | INTEGER | 用户 FK(可为空,游客) |
 | guest_name | TEXT | 游客名称 |
 | status | TEXT | 状态 (active/transferred/closed) |
+| summary | TEXT | 对话摘要(AI 自动生成) |
 
 ### ai_messages(AI 消息)
 
@@ -532,6 +583,7 @@ docker compose up --build
 | content | TEXT | 消息内容 |
 | image_url | TEXT | 图片 URL |
 | rating | INTEGER | 评分 (1=👍, 0=无, -1=👎) |
+| created_at | TEXT | 创建时间 |
 
 ### ai_knowledge(知识库)
 
@@ -543,6 +595,20 @@ docker compose up --build
 | category | TEXT | 分类 |
 | tags | TEXT | 标签 JSON |
 | status | TEXT | 状态 (active/hidden) |
+| hit_count | INTEGER | 检索命中次数 |
+
+### user_memory(用户画像记忆)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER | 主键 |
+| user_id | INTEGER | 用户 FK |
+| category | TEXT | 分类 (general/interest/behavior/context/preference) |
+| content | TEXT | 记忆内容 |
+| confidence | REAL | 置信度 (0-1) |
+| source_conversation_id | INTEGER | 来源对话 FK |
+| created_at | TEXT | 创建时间 |
+| updated_at | TEXT | 更新时间 |
 
 </details>
 
@@ -553,18 +619,28 @@ docker compose up --build
 ```
 imai-website/
 ├── backend/
-│   ├── server.js              # Express 主入口(所有路由定义)
+│   ├── server.js              # Express 主入口(中间件 + 路由挂载)
+│   ├── routes/
+│   │   ├── admin.js           # 管理后台路由(教程/FAQ/设置/用户/统计/知识库)
+│   │   ├── ai.js              # AI 对话路由(聊天/对话/评分)
+│   │   ├── auth.js            # 认证路由(注册/登录/用户信息)
+│   │   ├── public.js          # 公开接口(教程/FAQ/分类)
+│   │   ├── tickets.js         # 工单路由(创建/详情)
+│   │   └── user-tickets.js    # 用户工单(列表/详情)
 │   ├── database/
 │   │   └── schema.js          # 建表 + 迁移 + seed 数据
 │   ├── middleware/
 │   │   └── auth.js            # 双 JWT 验证(前台/后台独立)
 │   ├── services/
-│   │   ├── ai.js              # AI 对话(LLM 调用 + RAG 检索)
+│   │   ├── ai.js              # AI 对话(LLM 调用 + 三层记忆)
 │   │   ├── rag.js             # RAG 引擎(BM25 + 向量 + 同义词 + 自学习)
 │   │   ├── doc-parser.js      # 文档解析(Excel/Word/CSV/TXT,含图片提取)
 │   │   ├── feishu.js          # 飞书多维表格同步
 │   │   ├── notify.js          # 工单通知(飞书/企微 Webhook)
 │   │   └── queue.js           # AI 消息队列
+│   ├── scripts/
+│   │   ├── data-tool.js       # 数据导出/导入工具
+│   │   └── import_knowledge.js # 知识库批量导入脚本
 │   ├── .env.example           # 环境变量模板
 │   └── uploads/               # 上传文件(gitignore)
 ├── frontend/

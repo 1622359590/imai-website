@@ -109,7 +109,7 @@ export default function ConversationsPage() {
                       </span>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${sl.bg} ${sl.color}`}>{sl.label}</span>
                     </div>
-                    <p className="mt-1 text-xs text-[#94a3b8] truncate">{conv.last_message}</p>
+                    <p className="mt-1 text-xs text-[#94a3b8] truncate">{conv.summary || conv.last_message}</p>
                     <p className="mt-1 text-[10px] text-[#cbd5e1]">{conv.message_count} 条消息 · {conv.updated_at?.split('.')[0]?.replace('T', ' ')}</p>
                   </button>
                 );

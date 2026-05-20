@@ -677,6 +677,17 @@ async function retrieve(query, topK = 5) {
         images: [...new Set(images)],
       };
     });
+
+  // 异步更新知识库命中次数（不阻塞返回）
+  try {
+    const knowledgeIds = results.filter(r => r.source === 'knowledge').map(r => r.parentId);
+    if (knowledgeIds.length > 0) {
+      const placeholders = knowledgeIds.map(() => '?').join(',');
+      db.prepare(`UPDATE ai_knowledge SET hit_count = hit_count + 1 WHERE id IN (${placeholders})`).run(...knowledgeIds);
+    }
+  } catch {}
+
+  return results;
 }
 
 /**

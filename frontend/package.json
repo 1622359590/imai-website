@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@uiw/react-md-editor": "^4.1.0",
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-react": "^1.0.6",
     "next": "16.2.4",
