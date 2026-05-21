@@ -651,7 +651,7 @@ async function retrieve(query, topK = 5) {
     }
   }
 
-  return sorted
+  const results = sorted
     .filter(s => itemMap[s.chunkId])
     .map(s => {
       const item = itemMap[s.chunkId];
@@ -678,7 +678,7 @@ async function retrieve(query, topK = 5) {
       };
     });
 
-  // 异步更新知识库命中次数（不阻塞返回）
+  // 更新知识库命中次数
   try {
     const knowledgeIds = results.filter(r => r.source === 'knowledge').map(r => r.parentId);
     if (knowledgeIds.length > 0) {

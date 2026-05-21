@@ -27,6 +27,18 @@ async function getKnowledgeContext(query) {
     let context = '以下是与用户问题最相关的知识库内容，请基于这些信息回答：\n\n';
     for (const item of results) {
       context += `【${item.category || '未分类'}】${item.title}\n${item.content}\n`;
+      // 附带来源链接（教程/FAQ）
+      if (item.source === 'tutorial' && item.parentId) {
+        context += `📖 查看教程详情：[点击这里](/tutorials/${item.parentId})\n`;
+      } else if (item.source === 'faq') {
+        context += `❓ 更多常见问题：[查看FAQ](/faq)\n`;
+      }
+      // 提取内容中的外部链接
+      const urls = (item.content || '').match(/https?:\/\/[^\s"'<>)\]]+/g) || [];
+      const uniqueUrls = [...new Set(urls)];
+      if (uniqueUrls.length > 0) {
+        context += `🔗 相关链接：${uniqueUrls.map(u => `[${u}](${u})`).join('、')}\n`;
+      }
       // 附带相关图片
       if (item.images && item.images.length > 0) {
         context += `相关图片：${item.images.join(', ')}\n`;
@@ -117,7 +129,7 @@ async function chat(history, userMessage, imageUrl = '', options = {}) {
   const knowledge = await getKnowledgeContext(userMessage);
   if (knowledge) systemPrompt += '\n\n' + knowledge;
 
-  systemPrompt += '\n\n【回复规则】如果知识库中有相关图片，请在回答中用 markdown 图片语法展示。回答要简洁实用，避免过多废话。';
+  systemPrompt += '\n\n【回复规则】\n1. 如果知识库中有相关图片，请在回答中用 markdown 图片语法展示。\n2. 如果知识库内容中带有 📖 教程链接、🔗 外部链接 或 ❓ FAQ链接，你必须在回答末尾原样附上这些链接，不要修改链接地址。\n3. 回答要简洁实用，避免过多废话。';
 
   const messages = [{ role: 'system', content: systemPrompt }];
   const recentHistory = history.slice(-20);

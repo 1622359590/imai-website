@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { aiApi, authApi } from '@/lib/api';
@@ -303,9 +304,9 @@ export default function SupportPage() {
     <>
       <Header />
       <main className="min-h-screen bg-[#f8fafc]">
-        <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+        <div className="mx-auto max-w-4xl px-4 -mt-2 pb-4 sm:px-6">
           {/* 页面标题 */}
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-1 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] text-white shadow-lg shadow-[#8b5cf6]/30 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.15),transparent_60%)]" />
@@ -354,9 +355,9 @@ export default function SupportPage() {
           </div>
 
           {/* 对话区域 */}
-          <div className="card flex flex-col" style={{ height: 'calc(100vh - 200px)', minHeight: '500px' }}>
+          <div className="card flex flex-col" style={{ height: 'calc(100vh - 140px)', minHeight: '500px' }}>
             {/* 消息列表 */}
-            <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 pt-1 pb-4 space-y-4">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] ${msg.role === 'user' ? 'order-2' : ''}`}>
@@ -373,7 +374,14 @@ export default function SupportPage() {
                         : 'bg-white border border-[#e2e8f0] text-[#1e293b] rounded-bl-md chat-markdown'
                     }`}>
                       {msg.role === 'assistant' ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                          a: ({ href, children }) => {
+                            if (href && (href.startsWith('/') || href.startsWith('#'))) {
+                              return <Link href={href} className="text-[#8b5cf6] underline hover:text-[#7c3aed]">{children}</Link>;
+                            }
+                            return <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#8b5cf6] underline hover:text-[#7c3aed]">{children}</a>;
+                          }
+                        }}>{msg.content}</ReactMarkdown>
                       ) : (
                         <span className="whitespace-pre-wrap">{msg.content}</span>
                       )}
@@ -444,7 +452,7 @@ export default function SupportPage() {
             )}
 
             {/* 输入区域 - 支持拖拽 */}
-            <div className={`border-t p-4 transition-colors ${dragOver ? 'border-[#8b5cf6] bg-[#f5f3ff]' : 'border-[#e2e8f0]'}`}
+            <div className={`border-t px-4 pt-4 pb-2 transition-colors ${dragOver ? 'border-[#8b5cf6] bg-[#f5f3ff]' : 'border-[#e2e8f0]'}`}
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
@@ -510,10 +518,12 @@ export default function SupportPage() {
                   </svg>
                 </button>
               </div>
-              <p className="mt-2 text-[10px] text-[#94a3b8] text-center">
-                AI 回答仅供参考，如需人工帮助请点击「转人工」
-              </p>
             </div>
+
+            <p className="text-[10px] text-[#94a3b8] text-center py-1">
+              AI 回答仅供参考，如需人工帮助请点击「转人工」
+            </p>
+
           </div>
         </div>
       </main>
